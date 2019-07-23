@@ -1,0 +1,7 @@
+This is a toy MIPS CPU
+
+5-stage pipeline with full forwarding
+support 56 instructions
+wallace+booth multiplier and iterative divider
+
+based on Computer Architecture Seminer from University of Chinese Academy of Science 
