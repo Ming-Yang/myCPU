@@ -66,47 +66,25 @@ assign outdata = sel==2'b00 ? data0:
 
 endmodule
 
-module mux_RD(
-	input  [ 1:0] forwardAD,
-	input  [ 2:0] forward_hilo,
-	input  [31:0] d_rd1,
-	input  [31:0] w_reg_data,
-	input  [31:0] m_alu_pc8,
-	input  [31:0] d_hi,
-	input  [31:0] d_lo,
-	input  [31:0] w_hi,
-	input  [31:0] w_lo,
-	output [31:0] res
+module mux6_32(
+	input  [ 2:0] sel,
+	input  [31:0] data0,
+	input  [31:0] data1,
+	input  [31:0] data2,
+	input  [31:0] data3,
+	input  [31:0] data4,
+	input  [31:0] data5,
+	output [31:0] outdata
 );
-assign res = forward_hilo == `FORWARD_W_HI ? w_hi :
-             forward_hilo == `FORWARD_W_LO ? w_lo :
-             forward_hilo == `FORWARD_D_HI ? d_hi :
-             forward_hilo == `FORWARD_D_LO ? d_lo :
-			 forward_hilo == `FORWARD_ALU  ? w_reg_data :
-			 forward_hilo == 3'b0 && forwardAD == `MUX_FORWARD_M2D ? m_alu_pc8 :
-			 forward_hilo == 3'b0 && forwardAD == `MUX_FORWARD_W2D ? w_reg_data :
-			 forward_hilo == 3'b0 && forwardAD == `MUX_FORWARD_NO  ? d_rd1 :
-			 d_rd1 ;
-endmodule
+assign outdata = sel==3'd0 ? data0:
+				 sel==3'd1 ? data1:
+				 sel==3'd2 ? data2:
+				 sel==3'd3 ? data3:
+				 sel==3'd4 ? data4:
+				             data5;
 
-module mux_branch(
-    input         valid,
-	input  [ 1:0] sel,
-	input         branch,
-	input  [31:0] pc4,  
-	input  [31:0] imm,  
-	input  [31:0] breg, 
-	input  [31:0] index,
-	output [31:0] target
-	);
-assign target  = valid==1'b0                 ? pc4:
-                 sel==`BRANCH_INDEX          ? index:
-				 sel==`BRANCH_REG            ? breg:
-				 sel==`BRANCH_IMM && branch  ? imm:
-					  	                       pc4;	
 endmodule
 	
-
 module extend(
 	input         is_signed,
 	input  [15:0] data_in,

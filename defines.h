@@ -1,9 +1,9 @@
-
+`include "config.h"
 //appendix
 `define EXTEND_SIGNED      1'b1
 
 //cputop
-`define RESET_PC           32'hbfbffffc
+
 `define REG_RA             5'd31
 
 // signal defines
@@ -75,6 +75,7 @@
 `define FORWARD_W_LO       3'd3
 `define FORWARD_D_HI       3'd2
 `define FORWARD_D_LO       3'd1
+`define FORWARD_HILO_NO    3'd0
 
 //signed compare
 `define SIGNED_LESS 2'b00

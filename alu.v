@@ -1,9 +1,18 @@
 module alu(
-  input  [11:0] alu_op,
+  input  [ 4:0] sig_aluop,
   input  [31:0] alu_src1,
   input  [31:0] alu_src2,
   output [31:0] alu_result
 );
+
+wire [31:0] alu_hotkey;
+wire [11:0] alu_op;
+
+decoder_5_32 decoder_5_32(
+	sig_aluop,
+	alu_hotkey
+	);
+assign alu_op = alu_hotkey[11:0];
 
 wire op_add;   //加法操作
 wire op_sub;   //减法操作
@@ -44,7 +53,6 @@ wire [31:0] lui_result;
 wire [31:0] sll_result; 
 wire [63:0] sr64_result; 
 wire [31:0] sr_result; 
-
 
 // 32-bit adder
 wire [31:0] adder_a;

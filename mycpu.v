@@ -25,35 +25,36 @@ module mycpu_top(
 reg         reset ;
 
 //piplie ctl
+wire         f_reg_valid;
 wire        fd_reg_valid;
 wire        de_reg_valid;
 wire        em_reg_valid;
 wire        mw_reg_valid;
 
+wire         f_allowin;
 wire        fd_allowin;
 wire        de_allowin;
 wire        em_allowin;
 wire        mw_allowin;
 
+wire         f_stall;
 wire        fd_stall;
 wire        de_stall;
 wire        em_stall;
 wire        mw_stall;
 
+wire          to_f_valid;
 wire        f_to_d_valid;
 wire        d_to_e_valid;
 wire        e_to_m_valid;
 wire        m_to_w_valid;
 //fetch
-reg  [31:0] f_pc;
-wire [31:0] f_next_pc;
-wire [31:0] f_inst;
+wire [31:0] f_pc             ;
+wire [31:0] f_next_pc        ;
+wire [31:0] f_inst           ;
 
-wire        f_stall;
-wire        f_allowin;
-reg         f_valid;
-wire        to_f_valid;
-wire        f_readygo;
+wire [ 1:0] f_sig_branch     ;
+wire        f_isbranch       ;
 
 //decode
 wire [31:0] d_inst           ;
@@ -72,12 +73,14 @@ wire [31:0] d_16_target	     ;
 wire [31:0] d_26_target      ;
 wire [31:0] d_rd1            ;
 wire [31:0] d_rd2            ;
+wire [31:0] d_forward1_reg   ;
+wire [31:0] d_forward2_reg   ;
 wire [31:0] d_branch_src1    ;
 wire [31:0] d_branch_src2    ;
-wire [31:0] d_branch_src2_reg;
 wire        d_isbranch       ;
 wire [31:0] d_hi             ;
 wire [31:0] d_lo             ;
+wire        d_compare_0      ;
 
 wire [ 1:0] d_sig_branch     ;
 wire [ 1:0] d_sig_regdst     ;
@@ -110,6 +113,7 @@ wire [31:0] e_0extend        ;
 wire [ 4:0] e_regdstaddr     ;
 wire [31:0] e_alu_src1       ;
 wire [31:0] e_alu_src2       ;
+wire [31:0] e_forward1_reg   ;
 wire [31:0] e_alu_reg_src1   ;
 wire [31:0] e_alu_reg_src2   ;
 wire [31:0] e_alu_res        ;
@@ -185,19 +189,14 @@ wire        hazard_stall     ;
 wire        hazard_div_stall ;
 wire        hazard_div_relation_stall;
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 //fetch
-assign to_f_valid = ~reset ;
-assign f_readygo  = 1'b1   ;
-assign f_allowin  = !f_valid || f_readygo && fd_allowin;
-assign f_to_d_valid   = f_valid && f_readygo;
-//assign f_stall = fd_stall;
+assign f_sig_branch = d_sig_branch & {2{fd_reg_valid}};
+assign f_isbranch = d_isbranch;
 
 mux_branch pc_mux(
-    fd_reg_valid,
-	d_sig_branch,
-	d_isbranch,
+	f_sig_branch,
+	f_isbranch,
 	f_pc+3'h4,
 	d_16_target,
 	d_branch_src1,
@@ -205,26 +204,26 @@ mux_branch pc_mux(
 	f_next_pc
 );
 
+assign f_stall = reset;
+assign to_f_valid = 1'b1;
+fetch_reg fetch_reg(
+	.clk                (clk             ),
+	.reset              (reset           ),
+	.cur_stall          (f_stall         ),
+	.cur_allowin        (f_allowin       ),
+	.reg_valid          (f_reg_valid     ),
+	.pre_valid          (to_f_valid      ),
+	.post_allowin       (fd_allowin      ),
+	.goon_valid         (f_to_d_valid    ),
+	
+	.next_pc            (f_next_pc       ),
+	.pc                 (f_pc            )	
+);
+
 assign inst_sram_addr = f_next_pc;
 assign f_inst = inst_sram_rdata;
-assign inst_sram_en = to_f_valid && f_allowin;
+assign inst_sram_en = f_allowin;
 assign inst_sram_wen = 4'h0;
-
-always @(posedge clk) begin
-	if(reset) begin 
-		f_valid <= 1'b0;
-	end
-	else if(f_allowin) begin
-		f_valid <= to_f_valid;
-	end
-	if(reset) begin
-		f_pc <= `RESET_PC;
-	end
-	else if(to_f_valid && f_allowin) begin
-		f_pc <= f_next_pc;
-	end
-end
-
 //fetch2decode
 reg_pipline_full_stage pipe_f_d(
 	.clk                (clk             ),
@@ -241,7 +240,6 @@ reg_pipline_full_stage pipe_f_d(
 	
 	.instruction        (d_inst          ),
 	.pc                 (d_pc            )
-	
 	);
 
 //decode
@@ -314,30 +312,38 @@ reg_hilo reg_hilo(
 	d_lo
 );	
 
-mux_RD d_RD1_mux(
+mux3_32 d_forward1_reg_mux(
 	d_forwardAD,
-	d_forwardAD_hilo,
 	d_rd1,
 	w_reg_data,
 	m_alu_pc8,
-	d_hi,
+	d_forward1_reg
+);
+
+mux6_32 d_forward1_hilo_mux(
+	d_forwardAD_hilo,
+	d_forward1_reg,
 	d_lo,
+	d_hi,
+    w_muldiv_res[31: 0],
 	w_muldiv_res[63:32],
-	w_muldiv_res[31: 0],
-	d_branch_src1
-	);
+	m_alu_pc8,
+    d_branch_src1	
+);
 	
-mux3_32 d_RD2_mux(
+mux3_32 d_forward2_mux(
 	d_forwardBD,
 	d_rd2,
 	w_reg_data,
 	m_alu_pc8,
-	d_branch_src2_reg
+	d_forward2_reg
 	);
 
-mux2_32 d_RD2_reg_0_mux(
-	d_sig_brjudge != `BRJUDGE_EQUAL && d_sig_brjudge != `BRJUDGE_NEQUAL,
-	d_branch_src2_reg,
+assign d_compare_0 = d_sig_brjudge == `BRJUDGE_MORETHAN || d_sig_brjudge == `BRJUDGE_LESSTHAN ||
+					 d_sig_brjudge == `BRJUDGE_N_MORE   || d_sig_brjudge == `BRJUDGE_N_LESS ;
+mux2_32 d_forward2_0_mux(
+	d_compare_0,
+	d_forward2_reg,
 	32'b0,
 	d_branch_src2
 );
@@ -350,7 +356,6 @@ branch_judge branch_judge(
 	);
 
 // decode2execute
-// assign de_stall = 1'b0;
 reg_pipline_full_stage pipe_d_e(
 	.clk                (clk             ),
 	.reset              (reset           ),
@@ -418,6 +423,41 @@ mux3_5 regdst_mux(
 	e_regdstaddr
 	);
 
+///////////////////////e_forward_mux////////////
+`ifdef _USE_E_FORWARD
+mux3_32 e_forward1_reg_mux(
+	e_forwardAE,
+	e_rd1,
+	w_reg_data,
+	m_alu_pc8,
+	e_forward1_reg
+);
+
+mux6_32 e_forward1_hilo_mux(
+	e_forwardAE_hilo,
+	e_forward1_reg,
+	e_forward1_reg,
+	e_forward1_reg,
+    w_muldiv_res[31: 0],
+	w_muldiv_res[63:32],
+	m_alu_pc8,
+    e_alu_reg_src1	
+);
+
+mux3_32 e_foward2_mux(
+	e_forwardBE,
+	e_rd2,
+	w_reg_data,
+	m_alu_pc8,
+	e_alu_reg_src2
+	);	
+`else
+assign e_alu_reg_src1 = e_rd1;
+assign e_alu_reg_src2 = e_rd2;
+`endif
+
+/////////////////////////////////////////////////	
+
 mux2_32 alusrc1_mux(
 	e_sig_shamt,
 	e_alu_reg_src1,
@@ -453,41 +493,9 @@ div divider(
 	e_div_res[63:32],
 	m_div_complete
 );
-
-///////////////////////e_forward_mux////////////
-
-mux_RD alu_src1_foward_mux(
-	e_forwardAE,
-	e_forwardAE_hilo,
-	e_rd1,
-	w_reg_data,
-	m_alu_pc8,
-	e_rd1,
-	e_rd1,
-	w_muldiv_res[63:32],
-	w_muldiv_res[31: 0],
-	e_alu_reg_src1
-	);
-
-mux3_32 alu_src2_foward_mux(
-	e_forwardBE,
-	e_rd2,
-	w_reg_data,
-	m_alu_pc8,
-	e_alu_reg_src2
-	);	
-	
-// assign e_alu_reg_src1 = e_rd1;
-// assign e_alu_reg_src2 = e_rd2;
-
-/////////////////////////////////////////////////	
-decoder_5_32 decoder_5_32(
-	e_sig_aluop,
-	e_aluop_hotkey
-	);
 	
 alu alu(
-	e_aluop_hotkey[11:0],
+	e_sig_aluop,
 	e_alu_src1,
 	e_alu_src2,
 	e_alu_res
@@ -686,6 +694,7 @@ mul_div_hazard mul_div_hazard(
 
 assign fd_stall = hazard_stall || hazard_div_relation_stall;
 assign de_stall = hazard_div_stall;
+
 //reset
 always @(posedge clk) reset <= ~resetn;
 //debug signal

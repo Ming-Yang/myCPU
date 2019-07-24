@@ -34,20 +34,33 @@ wire        lw_reg_stall         ;
 wire        lw_brach_stall       ;
 wire        reg_branch_stall     ;
 wire        reg_reg_stall        ;
+wire        div_reg_reg_stall    ;
 
-assign lw_reg_stall       = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_memtoreg != `REG_FROM_ALU && de_valid);
+// d-brach e/m-lw
 assign lw_brach_stall     = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_memtoreg != `REG_FROM_ALU && d_sig_branch != `BRANCH_PC4 && de_valid) ||
 						    (m_reg_addr != 5'b0 && (m_reg_addr == d_rs || m_reg_addr == d_rt ) && m_sig_memtoreg != `REG_FROM_ALU && d_sig_branch != `BRANCH_PC4 && em_valid);
+
+// d-brach e-reg
 assign reg_branch_stall   = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_regen    == 1'b1          && d_sig_branch != `BRANCH_PC4 && de_valid);
 
+// div res forward from M stage
+assign div_reg_reg_stall  = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_regen    == 1'b1          && d_sig_div    == 1'b1        && de_valid);
+
+
 /////////////e_forward_mux/////////////////////////
-
-// assign reg_reg_stall      = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_regen    == 1'b1          && de_valid);
-assign reg_reg_stall      = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_regen    == 1'b1          && d_sig_div    == 1'b1        && de_valid);
-
+`ifdef _USE_E_FORWARD
+assign reg_reg_stall      = 1'b0;
+// d-reg e-lw
+assign lw_reg_stall       = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_memtoreg != `REG_FROM_ALU && de_valid);
+`else
+assign reg_reg_stall      = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_regen    == 1'b1          && de_valid);
+// d-reg e/m-lw
+assign lw_reg_stall       = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_memtoreg != `REG_FROM_ALU && de_valid) ||
+                            (m_reg_addr != 5'b0 && (m_reg_addr == d_rs || m_reg_addr == d_rt ) && m_sig_memtoreg != `REG_FROM_ALU && em_valid);
+`endif
 ///////////////////////////////////////////////////
 
-assign stall          = lw_brach_stall || lw_reg_stall || reg_branch_stall || reg_reg_stall;
+assign stall      = lw_brach_stall || lw_reg_stall || reg_branch_stall || reg_reg_stall || div_reg_reg_stall;
 
 	
 assign forwardAD  = (d_rs!= 5'b0 && d_rs == m_reg_addr && m_sig_regen && em_valid) ? `MUX_FORWARD_M2D :
@@ -95,20 +108,22 @@ module mul_div_hazard(
 wire        div_ready_stall      ;
 reg         reg_div_stall        ;
 
+//forward from W stage or get from normal register of get from hilo register
 assign hilo_forwardAD = d_hilo_r[0] == 1'b1 && w_hilo_w == 2'b11 ? `FORWARD_W_LO :
 					    d_hilo_r[0] == 1'b1 && w_hilo_w == 2'b00 ? `FORWARD_D_LO :
 					    d_hilo_r[1] == 1'b1 && w_hilo_w == 2'b11 ? `FORWARD_W_HI :
                         d_hilo_r[1] == 1'b1 && w_hilo_w == 2'b00 ? `FORWARD_D_HI :
 					    (d_hilo_r[0] == 1'b1 && w_hilo_w == 2'b01 || d_hilo_r[1] == 1'b1 && w_hilo_w == 2'b10) ? `FORWARD_ALU  :
-					    d_hilo_r == 2'b00                        ?             0 :
-					 											               0 ;
+					    d_hilo_r == 2'b00                        ?`FORWARD_HILO_NO :
+					 										      `FORWARD_HILO_NO ;
+																			   
 assign hilo_forwardAE = e_hilo_r[0] == 1'b1 && w_hilo_w == 2'b11 ? `FORWARD_W_LO :
 					    e_hilo_r[0] == 1'b1 && w_hilo_w == 2'b00 ? `FORWARD_D_LO :
 					    e_hilo_r[1] == 1'b1 && w_hilo_w == 2'b11 ? `FORWARD_W_HI :
                         e_hilo_r[1] == 1'b1 && w_hilo_w == 2'b00 ? `FORWARD_D_HI :
 					    (e_hilo_r[0] == 1'b1 && w_hilo_w == 2'b01 || e_hilo_r[1] == 1'b1 && w_hilo_w == 2'b10) ? `FORWARD_ALU  :
-					    e_hilo_r == 2'b00                        ?             0 :
-					 											               0 ;																			   
+					    e_hilo_r == 2'b00                        ?`FORWARD_HILO_NO :
+					 											  `FORWARD_HILO_NO ;																			   
 																			   
 			 
 always @(posedge clk) begin
