@@ -224,6 +224,7 @@ assign inst_sram_addr = f_next_pc;
 assign f_inst = inst_sram_rdata;
 assign inst_sram_en = f_allowin;
 assign inst_sram_wen = 4'h0;
+assign inst_sram_wdata = 32'b0;
 //fetch2decode
 reg_pipline_full_stage pipe_f_d(
 	.clk                (clk             ),

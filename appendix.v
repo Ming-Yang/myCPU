@@ -198,7 +198,7 @@ module memory_out_mux(
 	input  [31:0] alu_res,
 	input  [31:0] mem_data,
 	input  [31:0] reg_data,
-	input  [31:0] to_reg_data
+	output [31:0] to_reg_data
 );
 
 wire [ 1:0] mem_addr;
