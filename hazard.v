@@ -9,6 +9,7 @@ module hazard(
 	input [ 4:0] m_reg_addr      ,
 	input [ 4:0] w_reg_addr      ,
 	
+	input        fd_valid        ,
 	input        de_valid        ,
 	input        em_valid        ,
 	input        mw_valid        ,
@@ -37,14 +38,14 @@ wire        reg_reg_stall        ;
 wire        div_reg_reg_stall    ;
 
 // d-brach e/m-lw
-assign lw_brach_stall     = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_memtoreg != `REG_FROM_ALU && d_sig_branch != `BRANCH_PC4 && de_valid) ||
-						    (m_reg_addr != 5'b0 && (m_reg_addr == d_rs || m_reg_addr == d_rt ) && m_sig_memtoreg != `REG_FROM_ALU && d_sig_branch != `BRANCH_PC4 && em_valid);
+assign lw_brach_stall     = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_memtoreg != `REG_FROM_ALU && d_sig_branch != `BRANCH_PC4 && fd_valid && de_valid) ||
+						    (m_reg_addr != 5'b0 && (m_reg_addr == d_rs || m_reg_addr == d_rt ) && m_sig_memtoreg != `REG_FROM_ALU && d_sig_branch != `BRANCH_PC4 && fd_valid && em_valid);
 
 // d-brach e-reg
-assign reg_branch_stall   = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_regen    == 1'b1          && d_sig_branch != `BRANCH_PC4 && de_valid);
+assign reg_branch_stall   = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_regen    == 1'b1          && d_sig_branch != `BRANCH_PC4 && fd_valid && de_valid);
 
 // div res forward from M stage
-assign div_reg_reg_stall  = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_regen    == 1'b1          && d_sig_div    == 1'b1        && de_valid);
+assign div_reg_reg_stall  = (e_reg_addr != 5'b0 && (e_reg_addr == d_rs || e_reg_addr == d_rt ) && e_sig_regen    == 1'b1          && d_sig_div    == 1'b1        && fd_valid && de_valid);
 
 
 /////////////e_forward_mux/////////////////////////
@@ -89,6 +90,7 @@ module mul_div_hazard(
 	input        div             ,
 	input        div_complete    ,
 	
+	input        fd_valid        ,
 	input        de_valid        ,
 	input        em_valid        ,
 	
@@ -137,9 +139,9 @@ always @(posedge clk) begin
 		reg_div_stall <= 0;
 end
 
-assign div_ready_stall    = div == 1'b1 && div_complete == 1'b0 && de_valid;
+assign div_ready_stall    = div == 1'b1 && div_complete == 1'b0 && fd_valid && de_valid;
 //stall for div 33 clk
-assign div_stall          = reg_div_stall && div_complete == 1'b0;  
+assign div_stall          = (div_ready_stall || reg_div_stall) && div_complete == 1'b0;  
 
 assign relation_stall     = d_hilo_r && (e_hilo_w && de_valid || m_hilo_w && em_valid);
 

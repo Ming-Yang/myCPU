@@ -31,18 +31,25 @@ module sig_generator(
 	output        sig_shamt,
 	output [ 3:0] sig_hilo_rwen,
 	output        sig_mul_sign,
-	output        sig_div
+	output        sig_div,
+	output [ 2:0] sig_exc,
+	output [ 7:0] sig_exc_cmd,
+	
+	
+	output        sig_ri_exc
 );
 
 wire [5:0] op;
-wire [5:0] func;
+wire [4:0] rs;
 wire [4:0] rt;
+wire [5:0] func;
 
 ins_decoder decode_sig(
 	.instruct(instruct),
 	.opcode(op),
-	.func(func),
-	.rt(rt)
+	.rs(rs),
+	.rt(rt),
+	.func(func)
 );
 
 //19
@@ -174,6 +181,15 @@ assign  inst_sb	    = op == 6'b101000                                           
 assign  inst_sh	    = op == 6'b101001                                              ;
 assign  inst_swl    = op == 6'b101010                                              ;
 assign  inst_swr    = op == 6'b101110                                              ;
+
+
+
+assign inst_eret	= op ==6'b010000			          && func == 6'b011000     ;
+assign inst_mfc0	= op ==6'b010000	&&rs == 5'b00000                           ;
+assign inst_mtc0	= op ==6'b010000	&&rs == 5'b00100	                       ;
+assign inst_syscall	= op ==6'b000000			          && func == 6'b001100     ;
+assign inst_break	= op ==6'b000000			          && func == 6'b001101     ;
+
 																				   
 	
 
@@ -201,7 +217,7 @@ assign sig_aluop     =
 					   
 assign sig_regdst    = (inst_lui || inst_addiu || inst_lw ||
 						inst_addi || inst_slti || inst_sltiu || inst_andi || inst_addi || inst_ori || inst_xori ||
-						inst_lb || inst_lbu || inst_lh || inst_lhu || inst_lwl || inst_lwr) ? `REGDST_RT :
+						inst_lb || inst_lbu || inst_lh || inst_lhu || inst_lwl || inst_lwr || inst_mfc0) ? `REGDST_RT :
 					   (inst_jal || inst_bltzal || inst_bgezal)                             ? `REGDST_RA :
 					                                                                          `REGDST_RD ;
 					   
@@ -232,8 +248,9 @@ assign sig_memtoreg  = (inst_lw)             ? `REG_FROM_MEM    :
 assign sig_regen     = (inst_sw || inst_beq || inst_bne || inst_jr || 
 						inst_div || inst_divu || inst_mult || inst_multu || inst_mthi || inst_mtlo ||
 						inst_j || inst_bgez || inst_bgtz || inst_blez || inst_bltz ||
-						inst_sb || inst_sh || inst_swl || inst_swr) ? !`REGEN_EN :
-					                                                   `REGEN_EN ;
+						inst_sb || inst_sh || inst_swl || inst_swr || 
+						inst_eret || inst_mtc0 || inst_syscall || inst_break) ? !`REGEN_EN :
+					                                                             `REGEN_EN ;
 
 assign sig_brjudge   = (inst_bne) ? `BRJUDGE_NEQUAL :
 					   (inst_bgez || inst_bgezal) ? `BRJUDGE_N_LESS :
@@ -257,5 +274,25 @@ assign sig_mul_sign  = (inst_divu || inst_multu) ? 1'b0 :
 												   
 assign sig_div       = (inst_div || inst_divu) ? 1'b1 :
 												 1'b0 ;
+												 
+assign sig_exc       = inst_eret ? `EXC_ERET :
+					   inst_mfc0 ? `EXC_MFC0 :
+					   inst_mtc0 ? `EXC_MTC0 :
+					   inst_syscall ? `EXC_SYS :
+					   inst_break ? `EXC_BRK :
+									`EXC_NONE ;
 												  
+
+assign sig_exc_cmd[0] = inst_add;
+assign sig_exc_cmd[1] = inst_addi;
+assign sig_exc_cmd[2] = inst_sub;
+
+assign sig_exc_cmd[3] = inst_lw;
+assign sig_exc_cmd[4] = inst_lh;
+assign sig_exc_cmd[5] = inst_lhu;
+
+assign sig_exc_cmd[6] = inst_sw;
+assign sig_exc_cmd[7] = inst_sh;
+
+assign sig_ri_exc = ~ ( inst_lui || inst_addu || inst_addiu || inst_subu || inst_slt || inst_sltu || inst_and || inst_or || inst_xor || inst_nor || inst_sll || inst_srl || inst_sra || inst_lw || inst_sw || inst_beq || inst_bne || inst_jal || inst_jr || inst_add || inst_addi || inst_sub || inst_slti || inst_sltiu || inst_andi || inst_ori || inst_xori || inst_sllv || inst_srav || inst_srlv || inst_div || inst_divu || inst_mult || inst_multu || inst_mfhi || inst_mflo || inst_mthi || inst_mtlo || inst_j || inst_bgez || inst_bgtz || inst_blez || inst_bltz || inst_bltzal || inst_bgezal || inst_jalr || inst_lb || inst_lbu || inst_lh || inst_lhu || inst_lwl || inst_lwr || inst_sb || inst_sh || inst_swl || inst_swr || inst_eret || inst_mfc0 || inst_mtc0 || inst_syscall || inst_break );
 endmodule

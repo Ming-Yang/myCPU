@@ -1,4 +1,3 @@
-`include "config.h"
 //appendix
 `define EXTEND_SIGNED      1'b1
 
@@ -81,3 +80,11 @@
 `define SIGNED_LESS 2'b00
 `define SIGNED_MORE 2'b01
 `define SIGNED_EQL  2'b11
+
+//exceptions
+`define EXC_NONE  3'b000
+`define EXC_ERET  3'b001
+`define EXC_MFC0  3'b010
+`define EXC_MTC0  3'b011
+`define EXC_SYS   3'b100
+`define EXC_BRK   3'b101

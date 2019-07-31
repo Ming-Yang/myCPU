@@ -1,16 +1,17 @@
 `include "defines.h"
+`include "config.h"
 
 module fetch_reg
 (	
 	input         clk,
 	input         reset,
 	
-	input         cur_stall          ,//暂停当前流水线
-	output        cur_allowin        ,//当前级允许输入
+	input         cur_stall          ,//暂停当前流水�?
+	output        cur_allowin        ,//当前级允许输�?
 	output        reg_valid          ,
-	input         pre_valid          ,//前一级有效
-	input         post_allowin       ,//后一级允许输入
-	output	      goon_valid         ,//后一级有效
+	input         pre_valid          ,//前一级有�?
+	input         post_allowin       ,//后一级允许输�?
+	output	      goon_valid         ,//后一级有�?
 	
 	input  [31:0] next_pc            ,
 	output [31:0] pc

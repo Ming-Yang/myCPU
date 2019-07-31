@@ -46,6 +46,8 @@ module reg_pipline_full_stage(
 	input  [ 3:0] pre_sig_hilo_rwen  ,
 	input         pre_sig_mul_sign   ,
 	input         pre_sig_div        ,
+	input  [ 2:0] pre_sig_exc        ,
+	input  [ 7:0] pre_sig_exc_cmd    ,
 	                                 
 	//output                         
 	output [31:0] instruction        ,                         
@@ -81,7 +83,9 @@ module reg_pipline_full_stage(
 	output        sig_shamt          ,
 	output [ 3:0] sig_hilo_rwen      ,
 	output        sig_mul_sign       ,
-	output        sig_div
+	output        sig_div            ,
+	output [ 2:0] sig_exc            ,
+	output [ 7:0] sig_exc_cmd    
 );                                                  
 
 reg [31:0] reg_instruction    ;                         
@@ -118,6 +122,8 @@ reg        reg_sig_shamt      ;
 reg [ 3:0] reg_sig_hilo_rwen  ;
 reg        reg_sig_mul_sign   ;
 reg        reg_sig_div        ;
+reg [ 2:0] reg_sig_exc        ;
+reg [ 7:0] reg_sig_exc_cmd    ;
                    
 assign instruction     = reg_instruction    ;
 assign pc              = reg_pc             ;
@@ -153,6 +159,8 @@ assign sig_shamt       = reg_sig_shamt      ;
 assign sig_hilo_rwen   = reg_sig_hilo_rwen  ;
 assign sig_mul_sign    = reg_sig_mul_sign   ;
 assign sig_div         = reg_sig_div        ;
+assign sig_exc         = reg_sig_exc        ;
+assign sig_exc_cmd     = reg_sig_exc_cmd    ;
 
 reg        is_valid           ;//当前级有效
 wire       cur_ready_go       ;//当前级准备好发射
@@ -205,6 +213,8 @@ always @(posedge clk) begin
 		reg_sig_hilo_rwen  <= pre_sig_hilo_rwen  ;
 		reg_sig_mul_sign   <= pre_sig_mul_sign   ;
 		reg_sig_div        <= pre_sig_div        ;
+		reg_sig_exc        <= pre_sig_exc        ;
+		reg_sig_exc_cmd    <= pre_sig_exc_cmd    ;
 	end
 
 end
