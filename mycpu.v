@@ -222,7 +222,6 @@ wire [ 4:0] to_f_excCode        ;
 wire        to_f_is_exc         ;
 wire        to_f_is_in_ds       ;
 wire        to_f_is_eret        ;
-wire        to_f_en_disable     ;
 
 wire [ 4:0] f_excCode        ;
 wire        f_is_exc         ;
@@ -294,7 +293,7 @@ wire        cp0_wen          ;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 //fetch
-assign f_sig_branch = d_sig_branch & {2{fd_reg_valid}} & {2{~sig_inter___}};
+assign f_sig_branch = d_sig_branch & {2{fd_reg_valid}} & {2{~sig_inter___}};//todo
 assign f_isbranch = d_isbranch;
 
 mux_branch pc_mux(
@@ -831,7 +830,6 @@ assign fd_stall = (hazard_stall || hazard_div_relation_stall);
 assign de_stall = (hazard_div_stall);
 
 // exception and interrupt
-assign to_f_en_disable = 1'b0;
 // f stage
 assign f_excCode = f_adel_exc ? `ExcCode_AdEL :
 								`ExcCode_RESERVE ;
@@ -964,7 +962,7 @@ CP0_reg_pipeline em_cp0(
 	.en_disable         (em_en_disable   )
 );
 // m stage
-assign m_excCode = `ExcCode_RESERVE ;//AdESAdEl
+assign m_excCode = `ExcCode_RESERVE ;
 assign m_is_exc = 1'b0;
 assign m_is_in_ds = em_reg_valid && m_sig_branch != `BRANCH_PC4;
 // mw stage

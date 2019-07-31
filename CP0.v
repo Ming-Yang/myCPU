@@ -4,7 +4,7 @@
 module CP0(
 	input         clk           ,
 	input         reset         ,
-	input         reg_valid     ,							
+	input         reg_valid     ,
 	
 	input  [31:0] cur_pc        ,
 	
@@ -78,16 +78,9 @@ always @(posedge clk) begin
 			rf[`Register_EPC] <= cur_pc;
 			rf[`Register_Cause][`Register_Cause_ExcCode] <= `ExcCode_Int;
 		end
-		reg_inter <= in_inter;
-		reg_inter___ <= inter_occur;
-	end
-end
-
-
-always @(posedge clk) begin
-	if(~reset) begin
+		
 		if(counter_stop) begin
-			counter = 1'b0;
+			counter <= 1'b0;
 			counter_stop <= 1'b0;
 		end
 		else begin
@@ -99,14 +92,15 @@ always @(posedge clk) begin
 				rf[`Register_Cause][`Register_Cause_TI] = 1'b1;
 			end
 		end
+		
+		reg_inter <= in_inter;
+		reg_inter___ <= inter_occur;
 	end
 end
 
 assign rdata = rf[raddr];
 assign pc = pre_is_eret ? rf[`Register_EPC] :
 				                    `EXC_PC ;
-
-
 
 assign pre_exc_occur = reg_valid && pre_is_exc &&
 				       ((rf[`Register_Status][`Register_Status_EXL] == 1'b0) || 
@@ -119,8 +113,6 @@ assign Cause = rf[`Register_Cause] ;
 assign EPC = rf[`Register_EPC] ;
 
 endmodule
-
-
 
 
 
