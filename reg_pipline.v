@@ -5,6 +5,7 @@ module reg_pipline_full_stage(
 	input         reset              ,
 	
 	input         cur_stall          ,//暂停当前流水线
+	input         goon_stall         ,
 	output        cur_allowin        ,//当前级允许输入
 	output        reg_valid          ,
 	input         pre_valid          ,//前一级有效
@@ -167,7 +168,7 @@ wire       cur_ready_go       ;//当前级准备好发射
 
 assign reg_valid       = is_valid;
 assign cur_ready_go    = !cur_stall;
-assign cur_allowin     = !is_valid || (cur_ready_go && post_allowin);
+assign cur_allowin     = !(is_valid || goon_stall) || (cur_ready_go && post_allowin);
 assign goon_valid      = (is_valid && cur_ready_go);
 
 always @(posedge clk) begin

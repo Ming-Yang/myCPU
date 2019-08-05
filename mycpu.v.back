@@ -7,7 +7,7 @@ module mycpu(
     input         resetn ,
 	
 	//------inst sram-like-------
-    output        inst_req    ,
+    output reg    inst_req    ,
     output        inst_wr     ,
     output [1 :0] inst_size   ,
     output [31:0] inst_addr   ,
@@ -17,7 +17,7 @@ module mycpu(
     input         inst_data_ok,
     
     //------data sram-like-------
-    output        data_req    ,
+    output reg    data_req    ,
     output        data_wr     ,
     output [1 :0] data_size   ,
     output [31:0] data_addr   ,
@@ -300,15 +300,10 @@ wire        cp0_wen          ;
 
 
 /////////////////////////////////////////////////////////
-reg         iram_wait          ;
+reg         iram_invalid       ;
 wire        iram_stall         ;
-wire        iram_data_ok       ;
-wire        iram_addr_ok       ;
-
-reg         dram_wait          ;
+reg         dram_invalid       ;
 wire        dram_stall         ;
-wire        dram_data_ok       ;
-wire        dram_addr_ok       ;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 //fetch
@@ -325,8 +320,8 @@ mux_branch pc_mux(
 	f_branch_pc
 );
 
-assign f_stall = 1'b0;
-assign to_f_valid = 1'b1;
+assign f_stall = iram_stall;
+assign to_f_valid = ~reset;
 fetch_reg fetch_reg(
 	.clk                (clk             ),
 	.reset              (to_f_reset      ),
@@ -341,37 +336,37 @@ fetch_reg fetch_reg(
 	.pc                 (f_pc            )	
 );
 
-
-
 always @(posedge clk) begin
-	if(reset)
-		iram_wait <= 1'b0;
+	if(reset) begin
+		inst_req <= 1'b0;
+		iram_invalid <= 1'b0;
+	end
 	else begin
-		if(iram_addr_ok)
-			iram_wait <= 1'b1;
-		if(iram_data_ok)
-			iram_wait <= 1'b0;
+		if(inst_req & inst_addr_ok)
+			inst_req <= 1'b0;
+		else begin
+			inst_req <= 1'b1;
+		end
+		
+		if(inst_req && inst_addr_ok)
+			iram_invalid <= 1'b1;
+		if(inst_data_ok)
+			iram_invalid <= 1'b0;
 	end
 end
-
-assign inst_req = ~iram_wait & f_reg_valid;
-
-assign iram_addr_ok = inst_req & inst_addr_ok;
-assign iram_data_ok = inst_data_ok;
 
 assign inst_wr = 1'b0;
 assign inst_size = 2'b10;
 assign inst_addr = f_pc;
 assign inst_wdata = 32'b0;
 assign f_inst = inst_rdata;
-assign iram_stall = (inst_req | iram_wait) & ~iram_data_ok;
+assign iram_stall = (inst_req | iram_invalid) & ~inst_data_ok;
 //fetch2decode
 
 reg_pipline_full_stage pipe_f_d(
 	.clk                (clk             ),
 	.reset              (fd_reset        ),
 	.cur_stall          (fd_stall        ),
-	.goon_stall         (iram_stall      ),
 	.cur_allowin        (fd_allowin      ),
 	.reg_valid          (fd_reg_valid    ),
 	.pre_valid          (f_to_d_valid    ),
@@ -521,7 +516,6 @@ reg_pipline_full_stage pipe_d_e(
 	.clk                (clk             ),
 	.reset              (de_reset        ),
 	.cur_stall          (de_stall        ),
-	.goon_stall             (1'b0             ),
 	.cur_allowin        (de_allowin      ),
 	.reg_valid          (de_reg_valid    ),
 	.pre_valid          (d_to_e_valid    ),
@@ -678,13 +672,12 @@ memory_in_mux memory_in_mux(
 );
 
 //execute2memory
-assign em_stall = 1'b0;
+assign em_stall = dram_stall;
 
 reg_pipline_full_stage pipe_e_m(
 	.clk                    (clk              ),
 	.reset                  (em_reset         ),
 	.cur_stall              (em_stall         ),
-	.goon_stall             (1'b0             ),
 	.cur_allowin            (em_allowin       ),
 	.reg_valid              (em_reg_valid     ),
 	.pre_valid              (e_to_m_valid     ),
@@ -741,28 +734,33 @@ wire [3:0] mem_wen;
 assign mem_wen = m_wmem_en & (~{4{em_en_disable}});
 
 always @(posedge clk) begin
-	if(reset)
-		dram_wait <= 1'b0;
+	if(reset) begin
+		data_req <= 1'b0;
+		dram_invalid <= 1'b0;
+	end
 	else begin
-		if(dram_addr_ok)
-			dram_wait <= 1'b1;
-		if(dram_data_ok)
-			dram_wait <= 1'b0;
+	    
+		if(data_req & data_addr_ok)
+			data_req <= 1'b0;
+		else if(m_sig_memtoreg != `REG_FROM_ALU | mem_wen != 4'b0)
+			data_req <= 1'b1;
+			
+		if(data_req & data_addr_ok)
+			dram_invalid <= 1'b1;
+		if(data_data_ok)
+			dram_invalid <= 1'b0;
 	end
 end
 
-assign data_req = ~dram_wait & (m_sig_memtoreg != `REG_FROM_ALU | mem_wen != 4'b0);
-assign dram_addr_ok = data_req & data_addr_ok;
-assign dram_data_ok = data_data_ok;
-
 assign data_wr = (mem_wen != 4'b0);
-assign data_size = m_sig_memen == `MEMEN_BYTE || m_sig_memtoreg == `REG_FROM_BYTE_S || m_sig_memtoreg == `REG_FROM_BYTE_U ? 2'b00 :
-				   m_sig_memen == `MEMEN_HALF || m_sig_memtoreg == `REG_FROM_HALF_S || m_sig_memtoreg == `REG_FROM_HALF_U ? 2'b01 :
-				                                                                                                        2'b10 ;
+assign data_size = mem_wen == 4'b1111 ? 2'b10 :
+				   mem_wen == 4'b0011 ? 2'b01 :
+				                        2'b00 ;
 assign data_addr = m_alu_res;
 assign data_wdata = m_mem_data;
 assign m_mem_data_read = data_rdata;
-assign dram_stall = (data_req | dram_wait) & ~dram_data_ok;
+assign dram_stall = (data_req | dram_invalid) & ~data_data_ok;
+
 //assign data_sram_en = 1'b1;
 //assign data_sram_wen = e_wmem_en & (~{4{em_en_disable}});
 //assign data_sram_wdata = e_mem_data;
@@ -791,7 +789,6 @@ reg_pipline_full_stage pipe_m_w(
 	.clk                (clk             ),
 	.reset              (mw_reset        ),
 	.cur_stall          (mw_stall        ),
-	.goon_stall         (dram_stall      ),
 	.cur_allowin        (mw_allowin      ),
 	.reg_valid          (mw_reg_valid    ),
 	.pre_valid          (m_to_w_valid    ),

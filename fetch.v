@@ -7,6 +7,7 @@ module fetch_reg
 	input         reset,
 	
 	input         cur_stall          ,//暂停当前流水�?
+	input         goon_stall         ,
 	output        cur_allowin        ,//当前级允许输�?
 	output        reg_valid          ,
 	input         pre_valid          ,//前一级有�?
@@ -22,7 +23,7 @@ wire        cur_ready_go;
 
 assign reg_valid       = is_valid;
 assign cur_ready_go    = !cur_stall;
-assign cur_allowin     = !is_valid || (cur_ready_go && post_allowin);
+assign cur_allowin     = !(is_valid) || (cur_ready_go && post_allowin);
 assign goon_valid      = (is_valid && cur_ready_go);
 
 always @(posedge clk) begin
