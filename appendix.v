@@ -281,3 +281,72 @@ assign addr = alu_res ;
 assign en = mem_wen & {4{reg_valid}};
 
 endmodule
+
+
+module memory_in_mux_axi(
+	input  [ 3:0] sig_memen,
+	input         reg_valid,
+	input  [31:0] data_in,
+	input  [31:0] addr_in,
+	
+	output [31:0] out_addr1,
+	output [31:0] out_data1,
+	output [ 1:0] out_size1,
+						   
+	output [31:0] out_data2,
+	output [31:0] out_addr2,
+	output [ 1:0] out_size2,
+
+	output        en
+);
+wire [ 1:0] low_addr; 
+assign low_addr = addr_in[1:0];
+
+assign out_addr1 = 
+					 sig_memen == `MEMEN_JOIN_L && low_addr == 2'b00 ? addr_in :
+					 sig_memen == `MEMEN_JOIN_L && low_addr == 2'b01 ? addr_in-2'd1 :
+					 sig_memen == `MEMEN_JOIN_L && low_addr == 2'b10 ? addr_in-2'd2 :
+                     sig_memen == `MEMEN_JOIN_L && low_addr == 2'b11 ? addr_in-2'd3 :
+                                                                            addr_in ;
+												 
+assign out_data1 = 
+                     sig_memen == `MEMEN_JOIN_L && low_addr == 2'b00 ? {24'b0, data_in[31:24]} :
+					 sig_memen == `MEMEN_JOIN_L && low_addr == 2'b01 ? {16'b0, data_in[31:16]} :
+					 sig_memen == `MEMEN_JOIN_L && low_addr == 2'b10 ? { 8'b0, data_in[31: 8]} :
+					 sig_memen == `MEMEN_JOIN_L && low_addr == 2'b11 ?                 data_in :
+					 
+					 sig_memen == `MEMEN_BYTE || sig_memen == `MEMEN_HALF || sig_memen == `MEMEN_JOIN_R ? data_in << {low_addr, 3'b0} :
+					                                                                                                          data_in ;
+					 
+					 
+assign out_size1 = 
+					 sig_memen == `MEMEN_JOIN_L && low_addr == 2'b00 ? 2'b00 :
+					 sig_memen == `MEMEN_JOIN_L && low_addr == 2'b01 ? 2'b01 :
+                     sig_memen == `MEMEN_JOIN_L && low_addr == 2'b10 ? 2'b01 :
+                     sig_memen == `MEMEN_JOIN_L && low_addr == 2'b11 ? 2'b10 :
+                     
+                     sig_memen == `MEMEN_JOIN_R && low_addr == 2'b00 ? 2'b10 :
+                     sig_memen == `MEMEN_JOIN_R && low_addr == 2'b01 ? 2'b00 :
+                     sig_memen == `MEMEN_JOIN_R && low_addr == 2'b10 ? 2'b01 :
+                     sig_memen == `MEMEN_JOIN_R && low_addr == 2'b11 ? 2'b00 :
+                     
+                     sig_memen == `MEMEN_BYTE                        ? 2'b00 :
+					 sig_memen == `MEMEN_HALF                        ? 2'b01 :
+																	   2'b10 ;
+					 
+assign out_addr2 = 	sig_memen == `MEMEN_JOIN_L && low_addr == 2'b10 ? addr_in : 
+					sig_memen == `MEMEN_JOIN_R && low_addr == 2'b01 ? addr_in+32'd1 :
+																	  addr_in ;
+																	  
+assign out_data2 =  out_data1 ;
+					// sig_memen == `MEMEN_JOIN_L && low_addr == 2'b10 ? {24'b0,data_in[31:24]} : 				 
+					// sig_memen == `MEMEN_JOIN_R && low_addr == 2'b01 ? {16'b0,data_in[23:8 ]} : 
+																	                 // data_in ; 
+																	  
+assign out_size2 =  sig_memen == `MEMEN_JOIN_L && low_addr == 2'b10 ? 2'b00 :
+					sig_memen == `MEMEN_JOIN_R && low_addr == 2'b01 ? 2'b01 :
+																	  2'b10 ;
+
+assign en = sig_memen != 4'b0 ;
+
+endmodule

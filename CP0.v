@@ -7,6 +7,7 @@ module CP0(
 	input         reg_valid     ,
 	
 	input  [31:0] cur_pc        ,
+	input         m_is_in_ds    ,
 	
 	input  [31:0] pre_pc        ,
 	input  [31:0] pre_badvaddr  ,
@@ -39,6 +40,7 @@ reg        counter_stop;
 reg [31:0] rf[31:0]; 
 reg        reg_inter;
 reg        reg_inter___;
+reg        cur_is_in_ds;
 
 assign inter___    = reg_inter___;
 assign inter_occur = in_inter == 1'b1 && reg_inter == 1'b0;
@@ -62,6 +64,10 @@ always @(posedge clk) begin
 			rf[waddr]<= wdata;
 			if(waddr == `Register_Count)
 				counter_stop <= 1'b1;
+			if(waddr == `Register_Compare && rf[`Register_Cause][`Register_Cause_TI] == 1'b1) begin
+				rf[`Register_Cause][`Register_Cause_TI] <= 1'b0;
+				rf[`Register_Cause][`Register_Cause_IP0+3'd7] <= 1'b0;
+			end
 		end
 		
 		if(pre_exc_occur) begin
@@ -74,27 +80,28 @@ always @(posedge clk) begin
 				rf[`Register_BadVAddr] <= pre_badvaddr;
 		end
 		else if(inter_occur) begin
-			rf[`Register_Status][`Register_Status_EXL] = 1'b1;
-			rf[`Register_EPC] <= cur_pc;
+			rf[`Register_Status][`Register_Status_EXL] <= 1'b1;
+			rf[`Register_EPC] <= cur_is_in_ds ? cur_pc-3'd4 : cur_pc;
 			rf[`Register_Cause][`Register_Cause_ExcCode] <= `ExcCode_Int;
 		end
 		
-		if(counter_stop) begin
-			counter <= 1'b0;
-			counter_stop <= 1'b0;
-		end
-		else begin
-			counter <= ~counter;
-			if(counter)
-				rf[`Register_Count] <= rf[`Register_Count] + 32'b1;
-			if(rf[`Register_Compare] == rf[`Register_Count]) begin
-				rf[`Register_Cause][`Register_Cause_IP0+3'd7] = 1'b1;
-				rf[`Register_Cause][`Register_Cause_TI] = 1'b1;
-			end
-		end
-		
+		cur_is_in_ds <= m_is_in_ds;
 		reg_inter <= in_inter;
 		reg_inter___ <= inter_occur;
+	end
+	
+	if(counter_stop) begin
+		counter <= 1'b0;
+		counter_stop <= 1'b0;
+	end
+	else begin
+		counter <= ~counter;
+		if(counter & ~(reg_valid & wen & waddr == `Register_Count))
+			rf[`Register_Count] <= rf[`Register_Count] + 32'b1;
+		if(rf[`Register_Compare] == rf[`Register_Count]) begin
+			rf[`Register_Cause][`Register_Cause_IP0+3'd7] <= 1'b1;
+			rf[`Register_Cause][`Register_Cause_TI] <= 1'b1;
+		end
 	end
 end
 

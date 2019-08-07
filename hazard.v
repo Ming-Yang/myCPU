@@ -139,7 +139,7 @@ always @(posedge clk) begin
 		reg_div_stall <= 0;
 end
 
-assign div_ready_stall    = div == 1'b1 && div_complete == 1'b0 && fd_valid && de_valid;
+assign div_ready_stall    = div == 1'b1 && div_complete == 1'b0 && fd_valid && de_valid && ~reset;
 //stall for div 33 clk
 assign div_stall          = (div_ready_stall || reg_div_stall) && div_complete == 1'b0;  
 

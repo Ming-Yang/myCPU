@@ -59,7 +59,7 @@ wire        d_to_e_valid;
 wire        e_to_m_valid;
 wire        m_to_w_valid;
 
-wire        to_f_reset;
+wire         f_reset;
 wire        fd_reset;
 wire        de_reset;
 wire        em_reset;
@@ -197,6 +197,8 @@ wire [ 3:0] m_sig_hilo_rwen  ;
 wire        m_sig_div        ;
 wire [ 2:0] m_sig_exc        ;
 wire [ 7:0] m_sig_exc_cmd    ;
+wire        m_ades_exc       ;
+wire        m_adel_exc       ;
 
 //writeback
 wire [31:0] w_pc             ;
@@ -329,7 +331,7 @@ assign f_stall = 1'b0;
 assign to_f_valid = 1'b1;
 fetch_reg fetch_reg(
 	.clk                (clk             ),
-	.reset              (to_f_reset      ),
+	.reset              (f_reset         ),
 	.cur_stall          (f_stall         ),
 	.cur_allowin        (f_allowin       ),
 	.reg_valid          (f_reg_valid     ),
@@ -354,7 +356,7 @@ always @(posedge clk) begin
 	end
 end
 
-assign inst_req = ~iram_wait & f_reg_valid;
+assign inst_req = ~iram_wait & f_reg_valid & ~f_is_exc & ~e_ov_exc & ~e_adel_exc & ~e_ades_exc & ~m_adel_exc & ~m_ades_exc & ~sig_exc_occur & ~sig_inter_occur;
 
 assign iram_addr_ok = inst_req & inst_addr_ok;
 assign iram_data_ok = inst_data_ok;
@@ -666,17 +668,7 @@ alu alu(
 	e_alu_src2,
 	e_alu_res
 	);
-
-memory_in_mux memory_in_mux(
-	e_sig_memen,
-	de_reg_valid,
-	e_alu_reg_src2,
-	e_alu_res,
-	e_wmem_en,
-	e_mem_data,
-	e_mem_addr
-);
-
+	
 //execute2memory
 assign em_stall = 1'b0;
 
@@ -693,8 +685,8 @@ reg_pipline_full_stage pipe_e_m(
 	
 	.pre_pc                 (e_pc             ),
 	.pre_wreg_addr          (e_regdstaddr     ),
-	.pre_alu_res            (e_mem_addr       ),
-	.pre_data_write_mem     (e_mem_data       ),
+	.pre_alu_res            (e_alu_res        ),
+	.pre_data_write_mem     (e_alu_reg_src2   ),
 	.pre_hi                 (e_hi             ),
 	.pre_lo                 (e_lo             ),
 	.pre_div_res            (e_div_res        ),
@@ -715,6 +707,7 @@ reg_pipline_full_stage pipe_e_m(
 	.pre_sig_hilo_rwen      (e_sig_hilo_rwen  ),
 	.pre_sig_div            (e_sig_div        ),
 	.pre_sig_exc            (e_sig_exc        ),
+	.pre_sig_exc_cmd        (e_sig_exc_cmd    ),
 						   
 	.sig_regdst             (m_sig_regdst     ),
 	.sig_memen              (m_sig_memen      ),
@@ -723,51 +716,84 @@ reg_pipline_full_stage pipe_e_m(
 	.sig_branch             (m_sig_branch     ),
 	.sig_hilo_rwen          (m_sig_hilo_rwen  ),
 	.sig_div                (m_sig_div        ),
-	.sig_exc                (m_sig_exc        )
+	.sig_exc                (m_sig_exc        ),
+	.sig_exc_cmd            (m_sig_exc_cmd    )
 	);
 
 
 //memory
-wire [3:0] m_wmem_en;
-memory_in_mux m_memin_mux(
-	.sig_memen              (m_sig_memen),
-	.reg_valid				(em_reg_valid),
-	.alu_res				(m_alu_res),
-	.en						(m_wmem_en)
+wire        m_wmem_en;
+wire        mem_wen;
+wire [31:0] m_addr1;
+wire [31:0] m_addr2;
+wire [31:0] m_data1;
+wire [31:0] m_data2;
+wire [ 1:0] m_size1;
+wire [ 1:0] m_size2;
+reg  [ 1:0] joint_cmd_reg;
+wire        joint_stall;
+
+
+memory_in_mux_axi m_memin_mux(
+	.sig_memen            (m_sig_memen),
+	.reg_valid            (em_reg_valid),
+	.data_in              (m_mem_data),
+	.addr_in              (m_alu_res),
+	
+	.out_data1            (m_data1),	
+	.out_addr1            (m_addr1),
+	.out_size1            (m_size1),
+	 
+	.out_data2            (m_data2),
+	.out_addr2            (m_addr2),
+	.out_size2            (m_size2),
+	
+	.en                   (m_wmem_en)
 );
 
 
-wire [3:0] mem_wen;
-assign mem_wen = m_wmem_en & (~{4{em_en_disable}});
-
 always @(posedge clk) begin
-	if(reset)
+	if(reset) begin
 		dram_wait <= 1'b0;
+		joint_cmd_reg <= 2'd0;
+	end
+	
 	else begin
+		if((m_sig_memen == `MEMEN_JOIN_L || m_sig_memen == `MEMEN_JOIN_R) && m_size2 != 2'b10 && joint_cmd_reg == 2'd0)
+			joint_cmd_reg = 2'd2;
+			
 		if(dram_addr_ok)
 			dram_wait <= 1'b1;
-		if(dram_data_ok)
+		if(dram_data_ok) begin
 			dram_wait <= 1'b0;
+			if(joint_cmd_reg == 2'd2)
+				joint_cmd_reg <= 2'd1;
+			else if(joint_cmd_reg == 2'd1)
+				joint_cmd_reg <= 2'd0;
+		end
 	end
 end
 
-assign data_req = ~dram_wait & (m_sig_memtoreg != `REG_FROM_ALU | mem_wen != 4'b0);
+assign mem_wen = m_wmem_en & ~em_en_disable;
+
+assign data_req = ~dram_wait & (m_sig_memtoreg != `REG_FROM_ALU | mem_wen) & em_reg_valid & ~m_is_exc;
 assign dram_addr_ok = data_req & data_addr_ok;
 assign dram_data_ok = data_data_ok;
 
-assign data_wr = (mem_wen != 4'b0);
-assign data_size = m_sig_memen == `MEMEN_BYTE || m_sig_memtoreg == `REG_FROM_BYTE_S || m_sig_memtoreg == `REG_FROM_BYTE_U ? 2'b00 :
-				   m_sig_memen == `MEMEN_HALF || m_sig_memtoreg == `REG_FROM_HALF_S || m_sig_memtoreg == `REG_FROM_HALF_U ? 2'b01 :
-				                                                                                                        2'b10 ;
-assign data_addr = m_alu_res;
-assign data_wdata = m_mem_data;
+assign data_wr = mem_wen;
+assign data_size = m_sig_memtoreg == `REG_FROM_BYTE_S || m_sig_memtoreg == `REG_FROM_BYTE_U ? 2'b00 :
+				   m_sig_memtoreg == `REG_FROM_HALF_S || m_sig_memtoreg == `REG_FROM_HALF_U ? 2'b01 :
+				   (m_sig_memen == `MEMEN_JOIN_L || m_sig_memen == `MEMEN_JOIN_R) && joint_cmd_reg == 2'd1 ? m_size2 :
+																									         m_size1 ;
+assign data_addr = (m_sig_memen == `MEMEN_JOIN_L || m_sig_memen == `MEMEN_JOIN_R) && joint_cmd_reg == 2'd1 ? m_addr2 :
+																								             m_addr1 ;
+assign data_wdata = (m_sig_memen == `MEMEN_JOIN_L || m_sig_memen == `MEMEN_JOIN_R) && joint_cmd_reg == 2'd1 ? m_data2 :
+																									          m_data1 ;
 assign m_mem_data_read = data_rdata;
-assign dram_stall = (data_req | dram_wait) & ~dram_data_ok;
-//assign data_sram_en = 1'b1;
-//assign data_sram_wen = e_wmem_en & (~{4{em_en_disable}});
-//assign data_sram_wdata = e_mem_data;
-//assign m_mem_data_read = data_sram_rdata;
-//assign data_sram_addr = e_mem_addr;
+assign joint_stall = joint_cmd_reg == 2'd1 && dram_data_ok ? 1'b0 :
+									 joint_cmd_reg != 2'd0 ? 1'b1 :
+															 1'b0 ;
+assign dram_stall = (data_req | dram_wait) & ~dram_data_ok | joint_stall;
 
 assign m_pc8 = m_pc+4'h8;
 mux2_32 reg_m_pc8_mux(
@@ -880,7 +906,7 @@ hazard hazard(
 
 mul_div_hazard mul_div_hazard(
 	clk               ,
-	reset             ,
+	de_reset          ,
 	
 	e_sig_div         ,
 	e_div_complete    ,
@@ -909,9 +935,9 @@ assign de_stall = hazard_div_stall;
 // f stage
 assign f_excCode = f_adel_exc ? `ExcCode_AdEL :
 								`ExcCode_RESERVE ;
-assign f_adel_exc = f_pc[1:0] != 2'b00;
+assign f_adel_exc = f_reg_valid && f_pc[1:0] != 2'b00;
 assign f_is_exc = f_adel_exc;
-assign f_is_in_ds = fd_reg_valid && d_sig_branch != `BRANCH_PC4;
+assign f_is_in_ds = d_sig_branch != `BRANCH_PC4;
 assign f_is_eret = 1'b0;
 // fd stage
 CP0_reg_pipeline fd_cp0(
@@ -953,7 +979,7 @@ assign d_excCode = d_sig_exc == `EXC_SYS ? `ExcCode_Sys :
 				   d_ri_exc              ? `ExcCode_RI  :
 									   `ExcCode_RESERVE ;
 assign d_is_exc = fd_reg_valid && (d_sig_exc == `EXC_SYS || d_sig_exc == `EXC_BRK || d_sig_exc == `EXC_ERET || d_ri_exc);
-assign d_is_in_ds = de_reg_valid && e_sig_branch != `BRANCH_PC4;
+assign d_is_in_ds = e_sig_branch != `BRANCH_PC4;
 assign d_is_eret = fd_reg_valid && d_sig_exc == `EXC_ERET;
 // de stage
 CP0_reg_pipeline de_cp0(
@@ -991,17 +1017,19 @@ CP0_reg_pipeline de_cp0(
 );
 // e stage
 assign e_excCode = e_ov_exc ? `ExcCode_Ov :
-				   e_adel_exc ? `ExcCode_AdEL :
-				   e_ades_exc ? `ExcCode_AdES :
-								`ExcCode_RESERVE;
-assign e_ov_exc = (e_sig_exc_cmd[0] || e_sig_exc_cmd[1] ) && e_alu_src1[31] == e_alu_src2[31] && e_alu_res[31] != e_alu_src1[31] ||
-				  e_sig_exc_cmd[2] && e_alu_src1[31] != e_alu_src2[31] && e_alu_res[31] == e_alu_src2[31];
-assign e_adel_exc = (e_sig_exc_cmd[3] && e_alu_res[1:0] != 2'b00) || 
-					((e_sig_exc_cmd[4] || e_sig_exc_cmd[5]) && e_alu_res[0] != 1'b0); 
-assign e_ades_exc = (e_sig_exc_cmd[6] && e_alu_res[1:0] != 2'b00) ||
-					(e_sig_exc_cmd[7] && e_alu_res[0] != 1'b0);
-assign e_is_exc = e_ov_exc | e_adel_exc | e_ades_exc;
-assign e_is_in_ds = em_reg_valid && m_sig_branch != `BRANCH_PC4;
+						 `ExcCode_RESERVE ;
+assign e_ov_exc = ((e_sig_exc_cmd[0] || e_sig_exc_cmd[1] ) && e_alu_src1[31] == e_alu_src2[31] && e_alu_res[31] != e_alu_src1[31] ||
+				  e_sig_exc_cmd[2] && e_alu_src1[31] != e_alu_src2[31] && e_alu_res[31] == e_alu_src2[31] )&&
+				  de_reg_valid;
+assign e_adel_exc = ((e_sig_exc_cmd[3] && e_alu_res[1:0] != 2'b00) || 
+					((e_sig_exc_cmd[4] || e_sig_exc_cmd[5]) && e_alu_res[0] != 1'b0))
+					&& de_reg_valid; 
+assign e_ades_exc = ((e_sig_exc_cmd[6] && e_alu_res[1:0] != 2'b00) ||
+					(e_sig_exc_cmd[7] && e_alu_res[0] != 1'b0))
+					&& de_reg_valid;
+
+assign e_is_exc = e_ov_exc;
+assign e_is_in_ds = m_sig_branch != `BRANCH_PC4;
 assign e_is_eret = 1'b0;
 // em stage
 CP0_reg_pipeline em_cp0(
@@ -1038,9 +1066,19 @@ CP0_reg_pipeline em_cp0(
 	.en_disable         (em_en_disable   )
 );
 // m stage
-assign m_excCode = `ExcCode_RESERVE ;
-assign m_is_exc = 1'b0;
-assign m_is_in_ds = em_reg_valid && m_sig_branch != `BRANCH_PC4;
+assign m_excCode = m_adel_exc ? `ExcCode_AdEL :
+				   m_ades_exc ? `ExcCode_AdES :
+				             `ExcCode_RESERVE ;
+assign m_is_exc = m_adel_exc | m_ades_exc;
+
+assign m_adel_exc = ((m_sig_exc_cmd[3] && m_alu_res[1:0] != 2'b00) || 
+					((m_sig_exc_cmd[4] || m_sig_exc_cmd[5]) && m_alu_res[0] != 1'b0)) &&
+					em_reg_valid; 
+assign m_ades_exc = ((m_sig_exc_cmd[6] && m_alu_res[1:0] != 2'b00) ||
+					(m_sig_exc_cmd[7] && m_alu_res[0] != 1'b0)) &&
+					em_reg_valid;
+assign m_is_eret = 1'b0;
+assign m_is_in_ds = w_sig_branch != `BRANCH_PC4;
 // mw stage
 CP0_reg_pipeline mw_cp0(
 	.clk                (clk             ),
@@ -1050,7 +1088,7 @@ CP0_reg_pipeline mw_cp0(
 	.post_allowin       (1'b1            ),
 
 	.cur_pc             (m_pc            ),
-	.cur_badvaddr       (                ),
+	.cur_badvaddr       (m_alu_res       ),
 	.cur_excCode        (m_excCode       ),
 	.cur_is_exc         (m_is_exc        ),
 	.cur_is_in_ds       (m_is_in_ds      ),
@@ -1084,6 +1122,7 @@ CP0 CP0(
 	.reg_valid          (mw_reg_valid               ),
 
 	.cur_pc             (w_pc                       ),
+	.m_is_in_ds         (m_is_in_ds                 ),
 	
 	.pre_pc             (mw_pc                      ),
 	.pre_badvaddr       (mw_badvaddr                ),
@@ -1115,7 +1154,7 @@ mux2_32 branch_exc_pc_mux(
 	f_next_pc
 );
 
-assign to_f_reset = reset | de_en_disable | em_en_disable | mw_en_disable;
+assign  f_reset   = reset | de_en_disable | em_en_disable | mw_en_disable;
 assign fd_reset   = reset | de_en_disable | em_en_disable | mw_en_disable;
 assign de_reset   = reset | em_en_disable | mw_en_disable;
 assign em_reset   = reset | mw_en_disable;
