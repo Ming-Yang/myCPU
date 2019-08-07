@@ -5,6 +5,7 @@ module CP0(
 	input         clk           ,
 	input         reset         ,
 	input         reg_valid     ,
+	input         iram_stall    ,
 	
 	input  [31:0] cur_pc        ,
 	input         m_is_in_ds    ,
@@ -56,6 +57,7 @@ CP0_priority_checker CP0_priority_checker(
 
 always @(posedge clk) begin
 	if(reset) begin
+		reg_inter___ <= 1'b0;
 		rf[`Register_Status] <= `REGISTER_STATUS_INIT;
 		rf[`Register_Cause] <= `REGISTER_CAUSE_INIT;
 	end
@@ -79,14 +81,15 @@ always @(posedge clk) begin
 			if(pre_excCode == `ExcCode_AdEL || pre_excCode == `ExcCode_AdES)
 				rf[`Register_BadVAddr] <= pre_badvaddr;
 		end
-		else if(inter_occur) begin
+		else if(inter_occur & ~iram_stall) begin
 			rf[`Register_Status][`Register_Status_EXL] <= 1'b1;
 			rf[`Register_EPC] <= cur_is_in_ds ? cur_pc-3'd4 : cur_pc;
 			rf[`Register_Cause][`Register_Cause_ExcCode] <= `ExcCode_Int;
 		end
 		
 		cur_is_in_ds <= m_is_in_ds;
-		reg_inter <= in_inter;
+		if(~iram_stall)
+			reg_inter <= in_inter;
 		reg_inter___ <= inter_occur;
 	end
 	

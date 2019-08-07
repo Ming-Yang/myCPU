@@ -1120,6 +1120,7 @@ CP0 CP0(
 	.clk                (clk                        ),
 	.reset              (mw_reset                   ),
 	.reg_valid          (mw_reg_valid               ),
+	.iram_stall         (iram_stall                 ),
 
 	.cur_pc             (w_pc                       ),
 	.m_is_in_ds         (m_is_in_ds                 ),
