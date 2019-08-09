@@ -109,6 +109,7 @@ module jump_16(
 	input  [15:0] imm,
 	input  [31:0] pc4,
 	output [31:0] extend_res,
+	output [31:0] zextend_res,
 	output [31:0] target
 	);
 wire [31:0] extended;
@@ -118,7 +119,14 @@ extend sign_extend(
 	`EXTEND_SIGNED,
 	imm,
 	extended
+	);
+	
+extend z_sign_extend(
+	~`EXTEND_SIGNED,
+	imm,
+	zextend_res
 	);	
+
 left_shifter2 shifter(
 	extended,
 	branch

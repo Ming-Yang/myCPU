@@ -1,19 +1,20 @@
 `include "defines.h"
 `include "config.h"
 
-module fetch_reg
+module reg_pre_f
 (	
 	input         clk,
 	input         reset,
 	
-	input         cur_stall          ,//暂停当前流水�?
-	output        cur_allowin        ,//当前级允许输�?
+	input         cur_stall          ,
+	output        cur_allowin        ,
 	output        reg_valid          ,
-	input         pre_valid          ,//前一级有�?
-	input         post_allowin       ,//后一级允许输�?
-	output	      goon_valid         ,//后一级有�?
+	input         pre_valid          ,
+	input         post_allowin       ,
+	output	      goon_valid         ,
 	
-	input  [31:0] next_pc            ,
+	input  [31:0] pre_pc             ,
+	
 	output [31:0] pc
 );
 reg  [31:0] reg_pc;
@@ -37,7 +38,7 @@ always @(posedge clk) begin
 		reg_pc <= `RESET_PC;
 	end
 	else if(pre_valid && cur_allowin) begin
-		reg_pc <= next_pc;
+		reg_pc <= pre_pc;
 	end
 end
 

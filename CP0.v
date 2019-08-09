@@ -7,6 +7,7 @@ module CP0(
 	input         reg_valid     ,
 	
 	input  [31:0] cur_pc        ,
+	input         cur_is_in_ds  ,
 	
 	input  [31:0] pre_pc        ,
 	input  [31:0] pre_badvaddr  ,
@@ -18,11 +19,6 @@ module CP0(
 	output [31:0] pc            ,
 	output        exc_occur     ,
 	output        inter_occur   ,
-	output        inter___      ,
-	
-	output [31:0] Status        ,
-	output [31:0] Cause         ,
-	output [31:0] EPC           ,
 								
 	input         wen           ,
 	input  [ 4:0] waddr         ,
@@ -33,18 +29,12 @@ module CP0(
 
 wire       is_higher_priority;
 wire       pre_exc_occur;
+wire       in_exc;
 
 reg        counter;
-reg        counter_stop;
 reg [31:0] rf[31:0]; 
-reg        reg_inter;
-reg        reg_inter___;
 
-assign inter___    = reg_inter___;
-assign inter_occur = in_inter == 1'b1 && reg_inter == 1'b0;
-assign in_inter    = rf[`Register_Status][`Register_Status_EXL] == 1'b0 &&
-				     rf[`Register_Status][`Register_Status_IE] == 1'b1 &&
-				     (rf[`Register_Cause][`Register_Cause_IP] & rf[`Register_Status][`Register_Status_IM]);
+assign in_exc = rf[`Register_Status][`Register_Status_EXL];
 
 CP0_priority_checker CP0_priority_checker(
 	pre_excCode,
@@ -57,63 +47,54 @@ always @(posedge clk) begin
 		rf[`Register_Status] <= `REGISTER_STATUS_INIT;
 		rf[`Register_Cause] <= `REGISTER_CAUSE_INIT;
 	end
-	else if(reg_valid)begin
+	else begin
+		counter <= ~counter;
+		if(counter == 1'b1)
+			rf[`Register_Count] <= rf[`Register_Count] + 1'b1;	
+		if(rf[`Register_Compare] == rf[`Register_Count]) begin
+			rf[`Register_Cause][`Register_Cause_IP0+3'd7] <= 1'b1;
+			rf[`Register_Cause][`Register_Cause_TI] <= 1'b1;
+		end
+		else
+			rf[`Register_Cause][`Register_Cause_IP0+3'd7] <= 1'b0;
+		
 		if (wen) begin
-			rf[waddr]<= wdata;
+			rf[waddr] <= wdata;
 			if(waddr == `Register_Count)
-				counter_stop <= 1'b1;
+				counter <= 0;
+			if(waddr == `Register_Compare)
+				rf[`Register_Cause][`Register_Cause_TI] <= 1'b0;
 		end
 		
-		if(pre_exc_occur) begin
-			if(rf[`Register_Status][`Register_Status_EXL] == 1'b0)
-				rf[`Register_EPC] <= pre_pc;
-			rf[`Register_Cause][`Register_Cause_ExcCode] <= pre_excCode;
-			rf[`Register_Cause][`Register_Cause_BD] <= pre_is_in_ds;
-			rf[`Register_Status][`Register_Status_EXL] <= ~pre_is_eret;
-			if(pre_excCode == `ExcCode_AdEL || pre_excCode == `ExcCode_AdES)
-				rf[`Register_BadVAddr] <= pre_badvaddr;
-		end
-		else if(inter_occur) begin
-			rf[`Register_Status][`Register_Status_EXL] = 1'b1;
-			rf[`Register_EPC] <= cur_pc;
+		if(inter_occur) begin
+			rf[`Register_Status][`Register_Status_EXL] <= 1'b1;
+			rf[`Register_EPC] <= cur_is_in_ds ? cur_pc-3'd4 : cur_pc;
 			rf[`Register_Cause][`Register_Cause_ExcCode] <= `ExcCode_Int;
 		end
-		
-		if(counter_stop) begin
-			counter <= 1'b0;
-			counter_stop <= 1'b0;
-		end
-		else begin
-			counter <= ~counter;
-			if(counter)
-				rf[`Register_Count] <= rf[`Register_Count] + 32'b1;
-			if(rf[`Register_Compare] == rf[`Register_Count]) begin
-				rf[`Register_Cause][`Register_Cause_IP0+3'd7] = 1'b1;
-				rf[`Register_Cause][`Register_Cause_TI] = 1'b1;
+		else if(pre_exc_occur) begin
+			if(~pre_is_eret) begin
+				rf[`Register_EPC] <= pre_pc;
+				rf[`Register_BadVAddr] <= pre_badvaddr;
+				rf[`Register_Cause][`Register_Cause_ExcCode] <= pre_excCode;
 			end
+			rf[`Register_Cause][`Register_Cause_BD] <= pre_is_in_ds;
+			rf[`Register_Status][`Register_Status_EXL] <= ~pre_is_eret;
 		end
-		
-		reg_inter <= in_inter;
-		reg_inter___ <= inter_occur;
 	end
 end
+
+assign inter_occur = ~in_exc && reg_valid && 
+				     rf[`Register_Status][`Register_Status_IE] == 1'b1 &&
+				     (rf[`Register_Cause][`Register_Cause_IP] & rf[`Register_Status][`Register_Status_IM]);
+assign pre_exc_occur = reg_valid && pre_is_exc &&
+				       (~in_exc || 
+                       ( in_exc && (is_higher_priority || pre_is_eret)));
+assign exc_occur = pre_exc_occur | inter_occur;
 
 assign rdata = rf[raddr];
 assign pc = pre_is_eret ? rf[`Register_EPC] :
 				                    `EXC_PC ;
-
-assign pre_exc_occur = reg_valid && pre_is_exc &&
-				       ((rf[`Register_Status][`Register_Status_EXL] == 1'b0) || 
-                       (rf[`Register_Status][`Register_Status_EXL] == 1'b1 && (is_higher_priority || pre_is_eret)));
-assign exc_occur = pre_exc_occur || (reg_valid && inter_occur);
-
-
-assign Status = rf[`Register_Status] ;
-assign Cause = rf[`Register_Cause] ;
-assign EPC = rf[`Register_EPC] ;
-
 endmodule
-
 
 
 module CP0_priority_checker

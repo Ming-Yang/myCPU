@@ -19,24 +19,24 @@ assign instr_index = {rs,rt,immediate};
 endmodule
 
 module sig_generator(
+	input         is_valid,
 	input  [31:0] instruct,
-	output [ 1:0] sig_branch,
-	output [ 1:0] sig_regdst,
-	output [ 1:0] sig_alusrc,
-	output [ 4:0] sig_aluop,
-	output [ 3:0] sig_memen,
-	output [ 2:0] sig_memtoreg,
-	output        sig_regen,
-	output [ 2:0] sig_brjudge,
-	output        sig_shamt,
-	output [ 3:0] sig_hilo_rwen,
-	output        sig_mul_sign,
-	output        sig_div,
-	output [ 2:0] sig_exc,
-	output [ 7:0] sig_exc_cmd,
-	
-	
-	output        sig_ri_exc
+	output [ 1:0] out_sig_branch,
+	output [ 1:0] out_sig_regdst,
+	output [ 1:0] out_sig_alusrc,
+	output [ 4:0] out_sig_aluop,
+	output [ 3:0] out_sig_memen,
+	output [ 2:0] out_sig_memtoreg,
+	output        out_sig_regen,
+	output [ 2:0] out_sig_brjudge,
+	output        out_sig_shamt,
+	output [ 3:0] out_sig_hilo_rwen,
+	output        out_sig_mul_sign,
+	output        out_sig_div,
+	output [ 2:0] out_sig_exc,
+	output [ 7:0] out_sig_exc_cmd,
+
+	output        out_sig_ri_exc
 );
 
 wire [5:0] op;
@@ -52,146 +52,90 @@ ins_decoder decode_sig(
 	.func(func)
 );
 
-//19
-wire       inst_addu;
-wire       inst_subu;
-wire       inst_slt;
-wire       inst_sltu;
-wire       inst_and;
-wire       inst_or;
-wire       inst_xor;
-wire       inst_nor;
-wire       inst_sll;
-wire       inst_srl;
-wire       inst_sra;
-wire       inst_addiu;
-wire       inst_lui;
-wire       inst_lw;
-wire       inst_sw;
-wire       inst_beq;
-wire       inst_bne;
-wire       inst_jal;
-wire       inst_jr;
-
-
-//11
-wire       inst_add    ;
-wire       inst_addi   ;
-wire       inst_sub    ;
-wire       inst_slti   ;
-wire       inst_sltiu  ;
-wire       inst_andi   ;
-wire       inst_ori    ;
-wire       inst_xori   ;
-wire       inst_sllv   ;
-wire       inst_srav   ;
-wire       inst_srlv   ;
-
-
-//muldiv
-wire       inst_div    ;
-wire       inst_divu   ;
-wire       inst_mult   ;
-wire       inst_multu  ;
-wire       inst_mfhi   ;
-wire       inst_mflo   ;
-wire       inst_mthi   ;
-wire       inst_mtlo   ;
-
-
-//
-wire       inst_j      ;
-wire       inst_bgez   ;
-wire       inst_bgtz   ;
-wire       inst_blez   ;
-wire       inst_bltz   ;
-wire       inst_bltzal ;
-wire       inst_bgezal ;
-wire       inst_jalr   ;
-
-wire       inst_lb	   ;
-wire       inst_lbu    ;
-wire       inst_lh	   ;
-wire       inst_lhu    ;
-wire       inst_lwl    ;
-wire       inst_lwr    ;
-wire       inst_sb	   ;
-wire       inst_sh	   ;
-wire       inst_swl    ;
-wire       inst_swr    ;
-
 //decode
-assign  inst_lui	= op == 6'b001111	                                           ;
-assign  inst_addu	= op == 6'b000000	&& func == 6'b100001                       ;
-assign  inst_addiu	= op == 6'b001001	                                           ;
-assign  inst_subu	= op == 6'b000000	&& func == 6'b100011                       ;
-assign  inst_slt	= op == 6'b000000	&& func == 6'b101010                       ;
-assign  inst_sltu	= op == 6'b000000	&& func == 6'b101011                       ;
-assign  inst_and	= op == 6'b000000	&& func == 6'b100100                       ;
-assign  inst_or	    = op == 6'b000000	&& func == 6'b100101                       ;
-assign  inst_xor	= op == 6'b000000	&& func == 6'b100110                       ;
-assign  inst_nor	= op == 6'b000000	&& func == 6'b100111                       ;
-assign  inst_sll	= op == 6'b000000	&& func == 6'b000000                       ;
-assign  inst_srl	= op == 6'b000000	&& func == 6'b000010                       ;
-assign  inst_sra	= op == 6'b000000	&& func == 6'b000011                       ;
-assign  inst_lw	    = op == 6'b100011	                                           ;
-assign  inst_sw	    = op == 6'b101011	                                           ;
-assign  inst_beq	= op == 6'b000100	                                           ;
-assign  inst_bne	= op == 6'b000101	                                           ;
-assign  inst_jal	= op == 6'b000011	                                           ;
-assign  inst_jr	    = op == 6'b000000	&& func == 6'b001000                       ;
-															                       
-															                       
-assign  inst_add	= op == 6'b000000	&& func == 6'b100000                       ;
-assign  inst_addi	= op == 6'b001000	                                           ;
-assign  inst_sub	= op == 6'b000000	&& func == 6'b100010                       ;
-assign  inst_slti	= op == 6'b001010	                                           ;
-assign  inst_sltiu	= op == 6'b001011	                                           ;
-assign  inst_andi	= op == 6'b001100	                                           ;
-assign  inst_ori	= op == 6'b001101	                                           ;
-assign  inst_xori	= op == 6'b001110	                                           ;
-assign  inst_sllv	= op == 6'b000000	&& func == 6'b000100                       ;
-assign  inst_srav	= op == 6'b000000	&& func == 6'b000111                       ;
-assign  inst_srlv	= op == 6'b000000	&& func == 6'b000110                       ;
-															                       
-assign  inst_div	= op == 6'b000000 	&& func == 6'b011010                       ;
-assign  inst_divu	= op == 6'b000000 	&& func == 6'b011011                       ;
-assign  inst_mult	= op == 6'b000000 	&& func == 6'b011000                       ;
-assign  inst_multu	= op == 6'b000000 	&& func == 6'b011001                       ;
-assign  inst_mfhi	= op == 6'b000000	&& func == 6'b010000                       ;
-assign  inst_mflo	= op == 6'b000000	&& func == 6'b010010                       ;
-assign  inst_mthi	= op == 6'b000000	&& func == 6'b010001                       ;
-assign  inst_mtlo	= op == 6'b000000	&& func == 6'b010011                       ;
+wire    inst_lui	= op == 6'b001111	                                                                 ;
+wire    inst_addu	= op == 6'b000000	                                         && func == 6'b100001    ;
+wire    inst_addiu	= op == 6'b001001	                                                                 ;
+wire    inst_subu	= op == 6'b000000	                                         && func == 6'b100011    ;
+wire    inst_slt	= op == 6'b000000	                                         && func == 6'b101010    ;
+wire    inst_sltu	= op == 6'b000000	                                         && func == 6'b101011    ;
+wire    inst_and	= op == 6'b000000	                                         && func == 6'b100100    ;
+wire    inst_or	    = op == 6'b000000	                                         && func == 6'b100101    ;
+wire    inst_xor	= op == 6'b000000	                                         && func == 6'b100110    ;
+wire    inst_nor	= op == 6'b000000	                                         && func == 6'b100111    ;
+wire    inst_sll	= op == 6'b000000	                                         && func == 6'b000000    ;
+wire    inst_srl	= op == 6'b000000	                                         && func == 6'b000010    ;
+wire    inst_sra	= op == 6'b000000	                                         && func == 6'b000011    ;
+wire    inst_lw	    = op == 6'b100011	                                                                 ;
+wire    inst_sw	    = op == 6'b101011	                                                                 ;
+wire    inst_beq	= op == 6'b000100	                                                                 ;
+wire    inst_bne	= op == 6'b000101	                                                                 ;
+wire    inst_jal	= op == 6'b000011	                                                                 ;
+wire    inst_jr	    = op == 6'b000000	                                         && func == 6'b001000    ;
+										                                         	                          
+wire    inst_add	= op == 6'b000000	                                         && func == 6'b100000    ;
+wire    inst_addi	= op == 6'b001000	                                                                 ;
+wire    inst_sub	= op == 6'b000000	                                         && func == 6'b100010    ;
+wire    inst_slti	= op == 6'b001010	                                                                 ;
+wire    inst_sltiu	= op == 6'b001011	                                                                 ;
+wire    inst_andi	= op == 6'b001100	                                                                 ;
+wire    inst_ori	= op == 6'b001101	                                                                 ;
+wire    inst_xori	= op == 6'b001110	                                                                 ;
+wire    inst_sllv	= op == 6'b000000	                                         && func == 6'b000100    ;
+wire    inst_srav	= op == 6'b000000	                                         && func == 6'b000111    ;
+wire    inst_srlv	= op == 6'b000000	                                         && func == 6'b000110    ;
+										                                         	                      
+wire    inst_div	= op == 6'b000000 	                                         && func == 6'b011010    ;
+wire    inst_divu	= op == 6'b000000 	                                         && func == 6'b011011    ;
+wire    inst_mult	= op == 6'b000000 	                                         && func == 6'b011000    ;
+wire    inst_multu	= op == 6'b000000 	                                         && func == 6'b011001    ;
+wire    inst_mfhi	= op == 6'b000000	                                         && func == 6'b010000    ;
+wire    inst_mflo	= op == 6'b000000	                                         && func == 6'b010010    ;
+wire    inst_mthi	= op == 6'b000000	                                         && func == 6'b010001    ;
+wire    inst_mtlo	= op == 6'b000000	                                         && func == 6'b010011    ;
 
-assign  inst_j	    = op == 6'b000010	                                           ;
-assign  inst_bgez	= op == 6'b000001 	                         && rt == 5'b00001 ;
-assign  inst_bgtz	= op == 6'b000111                                              ;
-assign  inst_blez	= op == 6'b000110                                              ;
-assign  inst_bltz	= op == 6'b000001 	                         && rt == 5'b00000 ; 
-assign  inst_bltzal	= op == 6'b000001 	                         && rt == 5'b10000 ;
-assign  inst_bgezal	= op == 6'b000001 	                         && rt == 5'b10001 ;
-assign  inst_jalr	= op == 6'b000000	&& func == 6'b001001                       ;
-assign  inst_lb	    = op == 6'b100000                                              ;
-assign  inst_lbu    = op == 6'b100100                                              ;
-assign  inst_lh	    = op == 6'b100001                                              ;
-assign  inst_lhu    = op == 6'b100101                                              ;
-assign  inst_lwl    = op == 6'b100010                                              ;
-assign  inst_lwr    = op == 6'b100110                                              ;
-assign  inst_sb	    = op == 6'b101000                                              ;
-assign  inst_sh	    = op == 6'b101001                                              ;
-assign  inst_swl    = op == 6'b101010                                              ;
-assign  inst_swr    = op == 6'b101110                                              ;
+wire    inst_j	    = op == 6'b000010	                                                                 ;
+wire    inst_bgez	= op == 6'b000001 	                     && rt == 5'b00001                           ;
+wire    inst_bgtz	= op == 6'b000111                                                                    ;
+wire    inst_blez	= op == 6'b000110                                                                    ;
+wire    inst_bltz	= op == 6'b000001 	                     && rt == 5'b00000                           ; 
+wire    inst_bltzal	= op == 6'b000001 	                     && rt == 5'b10000                           ;
+wire    inst_bgezal	= op == 6'b000001 	                     && rt == 5'b10001                           ;
+wire    inst_jalr	= op == 6'b000000	                                         && func == 6'b001001    ;
+wire    inst_lb	    = op == 6'b100000                                                                    ;
+wire    inst_lbu    = op == 6'b100100                                                                    ;
+wire    inst_lh	    = op == 6'b100001                                                                    ;
+wire    inst_lhu    = op == 6'b100101                                                                    ;
+wire    inst_lwl    = op == 6'b100010                                                                    ;
+wire    inst_lwr    = op == 6'b100110                                                                    ;
+wire    inst_sb	    = op == 6'b101000                                                                    ;
+wire    inst_sh	    = op == 6'b101001                                                                    ;
+wire    inst_swl    = op == 6'b101010                                                                    ;
+wire    inst_swr    = op == 6'b101110                                                                    ;
 
+wire   inst_eret	= op ==6'b010000			                                  && func == 6'b011000   ;
+wire   inst_mfc0	= op ==6'b010000	&&rs == 5'b00000                                                 ;
+wire   inst_mtc0	= op ==6'b010000	&&rs == 5'b00100                                                 ;
+wire   inst_syscall	= op ==6'b000000			                                  && func == 6'b001100   ;
+wire   inst_break	= op ==6'b000000			                                  && func == 6'b001101   ;
+																							    
 
-
-assign inst_eret	= op ==6'b010000			          && func == 6'b011000     ;
-assign inst_mfc0	= op ==6'b010000	&&rs == 5'b00000                           ;
-assign inst_mtc0	= op ==6'b010000	&&rs == 5'b00100	                       ;
-assign inst_syscall	= op ==6'b000000			          && func == 6'b001100     ;
-assign inst_break	= op ==6'b000000			          && func == 6'b001101     ;
-
-																				   
-	
+wire [ 1:0] sig_branch       ;
+wire [ 1:0] sig_regdst       ;
+wire [ 1:0] sig_alusrc       ;
+wire [ 4:0] sig_aluop        ;
+wire [ 3:0] sig_memen        ;
+wire [ 2:0] sig_memtoreg     ;
+wire        sig_regen        ;
+wire [ 2:0] sig_brjudge      ;
+wire        sig_shamt        ;
+wire [ 3:0] sig_hilo_rwen    ;
+wire        sig_mul_sign     ;
+wire        sig_div          ;
+wire [ 2:0] sig_exc          ;
+wire [ 7:0] sig_exc_cmd      ;
+							 
+wire        sig_ri_exc       ;
 
 
 assign sig_branch    = (inst_jal || inst_j) ? `BRANCH_INDEX :
@@ -200,8 +144,7 @@ assign sig_branch    = (inst_jal || inst_j) ? `BRANCH_INDEX :
 					   `BRANCH_PC4;
 
 
-assign sig_aluop     = 
-					        (inst_sub || inst_subu) ? `ALUOP_SUB   :
+assign sig_aluop     =      (inst_sub || inst_subu) ? `ALUOP_SUB   :
 					        (inst_slti || inst_slt) ? `ALUOP_SLT   :
 					      (inst_sltu || inst_sltiu) ? `ALUOP_SLTU  :
 					        (inst_and || inst_andi) ? `ALUOP_AND   :
@@ -213,7 +156,6 @@ assign sig_aluop     =
 					        (inst_sra || inst_srav) ? `ALUOP_SRA   :
 					                     (inst_lui) ? `ALUOP_LUI   :
 					                                  `ALUOP_ADD   ;
-					   
 					   
 assign sig_regdst    = (inst_lui || inst_addiu || inst_lw ||
 						inst_addi || inst_slti || inst_sltiu || inst_andi || inst_addi || inst_ori || inst_xori ||
@@ -295,4 +237,24 @@ assign sig_exc_cmd[6] = inst_sw;
 assign sig_exc_cmd[7] = inst_sh;
 
 assign sig_ri_exc = ~ ( inst_lui || inst_addu || inst_addiu || inst_subu || inst_slt || inst_sltu || inst_and || inst_or || inst_xor || inst_nor || inst_sll || inst_srl || inst_sra || inst_lw || inst_sw || inst_beq || inst_bne || inst_jal || inst_jr || inst_add || inst_addi || inst_sub || inst_slti || inst_sltiu || inst_andi || inst_ori || inst_xori || inst_sllv || inst_srav || inst_srlv || inst_div || inst_divu || inst_mult || inst_multu || inst_mfhi || inst_mflo || inst_mthi || inst_mtlo || inst_j || inst_bgez || inst_bgtz || inst_blez || inst_bltz || inst_bltzal || inst_bgezal || inst_jalr || inst_lb || inst_lbu || inst_lh || inst_lhu || inst_lwl || inst_lwr || inst_sb || inst_sh || inst_swl || inst_swr || inst_eret || inst_mfc0 || inst_mtc0 || inst_syscall || inst_break );
+
+
+
+
+assign out_sig_branch    = {2{is_valid}} & sig_branch      ;
+assign out_sig_regdst    = {2{is_valid}} & sig_regdst      ;
+assign out_sig_alusrc    = {2{is_valid}} & sig_alusrc      ;
+assign out_sig_aluop     = {5{is_valid}} & sig_aluop       ;
+assign out_sig_memen     = {4{is_valid}} & sig_memen       ;
+assign out_sig_memtoreg  = {3{is_valid}} & sig_memtoreg    ;
+assign out_sig_regen     = {1{is_valid}} & sig_regen       ;
+assign out_sig_brjudge   = {3{is_valid}} & sig_brjudge     ;
+assign out_sig_shamt     = {1{is_valid}} & sig_shamt       ;
+assign out_sig_hilo_rwen = {4{is_valid}} & sig_hilo_rwen   ;
+assign out_sig_mul_sign  = {1{is_valid}} & sig_mul_sign    ;
+assign out_sig_div       = {1{is_valid}} & sig_div         ;
+assign out_sig_exc       = {3{is_valid}} & sig_exc         ;
+assign out_sig_exc_cmd   = {8{is_valid}} & sig_exc_cmd     ;
+assign out_sig_ri_exc    = {1{is_valid}} & sig_ri_exc      ;
+
 endmodule

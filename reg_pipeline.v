@@ -1,15 +1,15 @@
 //f-d-e-m-w
 //pre_x x reg_x 两次赋忿
-module reg_pipline_full_stage(
+module reg_pipeline_full_stage(
 	input         clk                ,                    
 	input         reset              ,
 	
-	input         cur_stall          ,//暂停当前流水线
-	output        cur_allowin        ,//当前级允许输入
+	input         cur_stall          ,
+	output        cur_allowin        ,
 	output        reg_valid          ,
-	input         pre_valid          ,//前一级有效
-	input         post_allowin       ,//后一级允许输入
-	output	      goon_valid         ,//后一级有效
+	input         pre_valid          ,
+	input         post_allowin       ,
+	output	      goon_valid         ,
               
 	//input                          
 	input  [31:0] pre_instruction    ,                         
@@ -124,46 +124,47 @@ reg        reg_sig_mul_sign   ;
 reg        reg_sig_div        ;
 reg [ 2:0] reg_sig_exc        ;
 reg [ 7:0] reg_sig_exc_cmd    ;
-                   
-assign instruction     = reg_instruction    ;
-assign pc              = reg_pc             ;
-                                            
-assign rs              = reg_rs             ;
-assign rt              = reg_rt             ;
-assign rd              = reg_rd             ;
-assign shamt           = reg_shamt          ;
-assign wreg_addr       = reg_wreg_addr      ;
-assign extend          = reg_extend         ;
-assign zextend         = reg_zextend        ;
-                                            
-assign reg_o1          = reg_reg_o1         ;
-assign reg_o2          = reg_reg_o2         ;
-                                            
-assign alu_res         = reg_alu_res        ;
-assign data_write_mem  = reg_data_write_mem ;
-assign data_read_mem   = reg_data_read_mem  ;
-
-assign hi              = reg_hi             ;
-assign lo              = reg_lo             ;
-assign muldiv_res      = reg_muldiv_res     ;
-assign div_res         = reg_div_res        ;
-                                            
-assign sig_regdst      = reg_sig_regdst     ;
-assign sig_alusrc      = reg_sig_alusrc     ;
-assign sig_aluop       = reg_sig_aluop      ;
-assign sig_memen       = reg_sig_memen      ;
-assign sig_memtoreg    = reg_sig_memtoreg   ;
-assign sig_regen       = reg_sig_regen      ;
-assign sig_branch      = reg_sig_branch     ;
-assign sig_shamt       = reg_sig_shamt      ;
-assign sig_hilo_rwen   = reg_sig_hilo_rwen  ;
-assign sig_mul_sign    = reg_sig_mul_sign   ;
-assign sig_div         = reg_sig_div        ;
-assign sig_exc         = reg_sig_exc        ;
-assign sig_exc_cmd     = reg_sig_exc_cmd    ;
-
 reg        is_valid           ;//当前级有效
 wire       cur_ready_go       ;//当前级准备好发射
+
+                   
+assign instruction     =                   reg_instruction    ;
+assign pc              =                   reg_pc             ;
+						                   
+assign rs              =                   reg_rs             ;
+assign rt              =                   reg_rt             ;
+assign rd              =                   reg_rd             ;
+assign shamt           =                   reg_shamt          ;
+assign wreg_addr       =                   reg_wreg_addr      ;
+assign extend          =                   reg_extend         ;
+assign zextend         =                   reg_zextend        ;
+						                   
+assign reg_o1          =                   reg_reg_o1         ;
+assign reg_o2          =                   reg_reg_o2         ;
+						                   
+assign alu_res         =                   reg_alu_res        ;
+assign data_write_mem  =                   reg_data_write_mem ;
+assign data_read_mem   =                   reg_data_read_mem  ;
+						                   
+assign hi              =                   reg_hi             ;
+assign lo              =                   reg_lo             ;
+assign muldiv_res      =                   reg_muldiv_res     ;
+assign div_res         =                   reg_div_res        ;
+
+assign sig_regdst      = {2{is_valid}} & reg_sig_regdst     ;
+assign sig_alusrc      = {2{is_valid}} & reg_sig_alusrc     ;
+assign sig_aluop       = {5{is_valid}} & reg_sig_aluop      ;
+assign sig_memen       = {4{is_valid}} & reg_sig_memen      ;
+assign sig_memtoreg    = {3{is_valid}} & reg_sig_memtoreg   ;
+assign sig_regen       = {1{is_valid}} & reg_sig_regen      ;
+assign sig_branch      = {2{is_valid}} & reg_sig_branch     ;
+assign sig_shamt       = {1{is_valid}} & reg_sig_shamt      ;
+assign sig_hilo_rwen   = {4{is_valid}} & reg_sig_hilo_rwen  ;
+assign sig_mul_sign    = {1{is_valid}} & reg_sig_mul_sign   ;
+assign sig_div         = {1{is_valid}} & reg_sig_div        ;
+assign sig_exc         = {3{is_valid}} & reg_sig_exc        ;
+assign sig_exc_cmd     = {8{is_valid}} & reg_sig_exc_cmd    ;
+
 
 assign reg_valid       = is_valid;
 assign cur_ready_go    = !cur_stall;
