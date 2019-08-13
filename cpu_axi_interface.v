@@ -78,7 +78,6 @@ wire        dram_read_finish;
 reg         dram_read_idle;
 reg  [31:0] dram_read_addr;
 reg  [ 1:0] dram_read_size;
-
 // inst
 wire        iram_read_finish;
 reg         iram_read_idle;
@@ -92,24 +91,24 @@ always @(posedge clk) begin
 		dram_read_idle <= 1'b1;
 	end
 	else begin
-		if(data_req) begin
-			if(data_wr & data_addr_ok) begin
+		if(data_req & data_addr_ok) begin
+			if(data_wr) begin
 				dram_write_addr <= data_addr;
 				dram_write_data <= data_wdata;
 				dram_write_size <= data_size;
 				dram_write_idle <= 1'b0;
 			end
-			else if(~data_wr & data_addr_ok)begin
+			else if(~data_wr)begin
 				dram_read_addr <= data_addr;
 				dram_read_size <= data_size;
 				dram_read_idle <= 1'b0;
 			end
 		end
 		
-		if(~dram_read_idle & dram_read_finish) begin
+		if(dram_read_finish) begin
 			dram_read_idle <= 1'b1;
 		end
-		else if(~dram_write_idle & dram_write_finish) begin
+		else if(dram_write_finish) begin
 			dram_write_idle <= 1'b1;
 		end
 	end
@@ -120,22 +119,20 @@ assign data_addr_ok = dram_read_idle & dram_write_idle & iram_read_idle;
 assign data_data_ok = (~dram_write_idle & dram_write_finish) | (~dram_read_idle & dram_read_finish);
 
 
-
-
 always @(posedge clk) begin
 	if(reset) begin
 		iram_read_idle <= 1'b1;
 	end
 	else begin
-		if(inst_req) begin
-			if(~inst_wr && inst_addr_ok)begin
+		if(inst_req & inst_addr_ok) begin
+			if(~inst_wr)begin
 				iram_read_addr <= inst_addr;
 				iram_read_size <= inst_size;
 				iram_read_idle <= 1'b0;
 			end
 		end
 		
-		if(inst_data_ok) begin
+		if(iram_read_finish) begin
 			iram_read_idle <= 1'b1;
 		end
 	end
@@ -173,8 +170,6 @@ always @(posedge clk) begin
 			write_data_finish <= 1'b1;
 		else if(dram_write_finish)
 			write_data_finish <= 1'b0;
-		
-
 	end
 end
 

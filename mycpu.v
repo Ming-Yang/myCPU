@@ -31,43 +31,46 @@ module mycpu(
     output [ 4:0] debug_wb_rf_wnum ,
     output [31:0] debug_wb_rf_wdata
 );
-//reset
+// reset
 reg         reset ;
 
-//piplie ctl
-wire         f_reg_valid;
+// piplie ctl
+wire        pre_f_reg_valid;
 wire        fd_reg_valid;
 wire        de_reg_valid;
 wire        em_reg_valid;
 wire        mw_reg_valid;
 
-wire         f_allowin;
+wire        pre_f_allowin;
 wire        fd_allowin;
 wire        de_allowin;
 wire        em_allowin;
 wire        mw_allowin;
 
-wire         f_stall;
+wire        pre_f_stall;
 wire        fd_stall;
 wire        de_stall;
 wire        em_stall;
 wire        mw_stall;
 
-wire          to_f_valid;
+wire        pre_to_f_valid;
 wire        f_to_d_valid;
 wire        d_to_e_valid;
 wire        e_to_m_valid;
 wire        m_to_w_valid;
 
-wire         f_reset;
+wire        to_f_reset;
 wire        fd_reset;
 wire        de_reset;
 wire        em_reset;
 wire        mw_reset;
-//fetch
+// pre fetch
+wire [31:0] pre_f_pc         ;
+wire [31:0] pre_f_branch_pc  ;
+// fetch
 wire [31:0] f_pc             ;
-wire [31:0] f_next_pc        ;
-wire [31:0] f_branch_pc      ;
+							  
+							  
 wire [31:0] f_inst           ;
 
 wire [ 1:0] f_sig_branch     ;
@@ -76,7 +79,7 @@ wire        f_isbranch       ;
 wire [ 2:0] f_sig_exc        ;
 wire        f_adel_exc       ;
 
-//decode
+// decode
 wire [31:0] d_inst           ;
 wire [31:0] d_pc             ;
 wire [31:0] d_pc4            ;
@@ -102,7 +105,9 @@ wire [31:0] d_branch_src2    ;
 wire        d_isbranch       ;
 wire [31:0] d_hi             ;
 wire [31:0] d_lo             ;
+wire        d_reg_hilo_0     ;
 wire        d_compare_0      ;
+wire        d_reg_cp0        ;
 wire [31:0] d_cp0_data       ;
 
 wire [ 1:0] d_sig_branch     ;
@@ -120,13 +125,15 @@ wire        d_sig_div        ;
 wire [ 2:0] d_sig_exc        ;
 wire [ 7:0] d_sig_exc_cmd    ;
 wire        d_ri_exc         ;
+wire        d_sys_exc        ;
+wire        d_brk_exc        ;
+wire        d_eret_exc       ;
 
 wire [ 1:0] d_forwardAD      ;
 wire [ 1:0] d_forwardBD      ;
 wire [ 2:0] d_forwardAD_hilo ;
-wire [ 2:0] d_forwardAE_hilo ;
 
-//execute
+// execute
 wire [31:0] e_pc             ;
 wire [ 4:0] e_rs             ;
 wire [ 4:0] e_rt             ;
@@ -169,12 +176,7 @@ wire        e_ov_exc         ;
 wire        e_ades_exc       ;
 wire        e_adel_exc       ;
 
-wire [ 1:0] e_forwardAE      ;
-wire [ 1:0] e_forwardBE      ;
-
-wire [ 2:0] e_forwardAE_hilo ;
-
-//memory
+// memory
 wire [31:0] m_pc             ;
 wire [31:0] m_pc8            ;
 wire [31:0] m_alu_res        ;
@@ -221,24 +223,18 @@ wire [ 1:0] w_sig_branch     ;
 wire [ 3:0] w_sig_hilo_rwen  ;
 wire [ 2:0] w_sig_exc        ;
 
-//hazard
+// hazard
 wire        hazard_stall     ;
 wire        hazard_div_stall ;
 wire        hazard_div_relation_stall;
 
 ///////////////////////////////////cp0//////////////////////////////////////////////
-wire [31:0] to_f_pc             ;
-wire [ 4:0] to_f_excCode        ;
-wire        to_f_is_exc         ;
-wire        to_f_is_in_ds       ;
-wire        to_f_is_eret        ;
-
 wire [ 4:0] f_excCode        ;
 wire        f_is_exc         ;
 wire        f_is_in_ds       ;
 wire        f_is_eret        ;
 
-wire [31:0] fd_pc             ;//todo:fd_epc
+wire [31:0] fd_pc             ;
 wire [31:0] fd_badvaddr       ;
 wire [ 4:0] fd_excCode        ;
 wire        fd_is_exc         ;
@@ -249,6 +245,7 @@ wire        fd_en_disable     ;
 wire [ 4:0] d_excCode        ;
 wire        d_is_exc         ;
 wire        d_is_in_ds       ;
+reg         d_is_in_ds_reg   ;
 wire        d_is_eret        ;
 
 wire [31:0] de_pc             ;
@@ -262,6 +259,7 @@ wire        de_en_disable     ;
 wire [ 4:0] e_excCode        ;
 wire        e_is_exc         ;
 wire        e_is_in_ds       ;
+reg         e_is_in_ds_reg   ;
 wire        e_is_eret        ;
 
 wire [31:0] em_pc             ;
@@ -275,6 +273,7 @@ wire        em_en_disable     ;
 wire [ 4:0] m_excCode        ;
 wire        m_is_exc         ;
 wire        m_is_in_ds       ;
+reg         m_is_in_ds_reg   ;
 wire        m_is_eret        ;
 
 wire [31:0] mw_pc             ;
@@ -294,15 +293,12 @@ wire        w_is_eret        ;
 wire [31:0] exc_pc           ;
 wire        sig_exc_occur    ;
 wire        sig_inter_occur  ;
-wire        sig_inter___     ;
-wire [31:0] cp0_Cause        ;
-wire [31:0] cp0_Status       ;
-wire [31:0] cp0_EPC          ;
 wire        cp0_wen          ;
 
 
-/////////////////////////////////////////////////////////
+////////////////////////////////////ram///////////////////////////////////////////////////////////////
 reg         iram_wait          ;
+reg         iram_exc_wait      ;
 wire        iram_stall         ;
 wire        iram_data_ok       ;
 wire        iram_addr_ok       ;
@@ -312,10 +308,32 @@ wire        dram_stall         ;
 wire        dram_data_ok       ;
 wire        dram_addr_ok       ;
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-//fetch
-assign f_sig_branch = d_sig_branch & {2{fd_reg_valid}} & {2{~sig_inter___}};//todo
+/////////////////////////////////pipeline module/////////////////////////////////////////////////////////
+// fetch
+assign f_sig_branch = d_sig_branch ;
 assign f_isbranch = d_isbranch;
+always @(posedge clk) begin
+	if(de_reg_valid)
+		d_is_in_ds_reg <= e_sig_branch != `BRANCH_PC4;
+	if(em_reg_valid)
+		e_is_in_ds_reg <= m_sig_branch != `BRANCH_PC4;
+	if(mw_reg_valid)
+		m_is_in_ds_reg <= w_sig_branch != `BRANCH_PC4;
+
+end
+// reg        f_isbranch_reg;
+// reg  [1:0] f_sig_branch_reg;
+// assign f_sig_branch = ~fd_reg_valid ? f_sig_branch_reg :
+									// d_sig_branch;
+// assign f_isbranch = ~fd_reg_valid ? f_isbranch_reg :
+								  // d_isbranch;
+
+// always @(posedge clk) begin
+	// if(fd_reg_valid) begin
+		// f_sig_branch_reg <= d_sig_branch;
+		// f_isbranch_reg <= d_isbranch;
+	// end
+// end
 
 mux_branch pc_mux(
 	f_sig_branch,
@@ -324,56 +342,60 @@ mux_branch pc_mux(
 	d_16_target,
 	d_branch_src1,
 	d_26_target,
-	f_branch_pc
+	pre_f_branch_pc
 );
 
-assign f_stall = 1'b0;
-assign to_f_valid = 1'b1;
-fetch_reg fetch_reg(
-	.clk                (clk             ),
-	.reset              (f_reset         ),
-	.cur_stall          (f_stall         ),
-	.cur_allowin        (f_allowin       ),
-	.reg_valid          (f_reg_valid     ),
-	.pre_valid          (to_f_valid      ),
-	.post_allowin       (fd_allowin      ),
-	.goon_valid         (f_to_d_valid    ),
+assign pre_f_stall = iram_stall & ~sig_inter_occur;
+assign pre_to_f_valid = 1'b1;
+reg_pre_f pipe_pre_f(
+	.clk                (clk                 ),
+	.reset              (to_f_reset          ),
+	.cur_stall          (pre_f_stall         ),
+	.cur_allowin        (pre_f_allowin       ),
+	.reg_valid          (pre_f_reg_valid     ),
+	.pre_valid          (pre_to_f_valid      ),
+	.post_allowin       (fd_allowin          ),
+	.goon_valid         (f_to_d_valid        ),
 	
-	.next_pc            (f_next_pc       ),
-	.pc                 (f_pc            )	
+	.pre_pc             (pre_f_pc            ),
+	
+	.pc                 (f_pc                )	
 );
-
-
 
 always @(posedge clk) begin
-	if(reset)
+	if(reset) begin
 		iram_wait <= 1'b0;
+		iram_exc_wait <= 1'b0;
+	end
 	else begin
 		if(iram_addr_ok)
 			iram_wait <= 1'b1;
-		if(iram_data_ok)
+		if(inst_data_ok) begin
 			iram_wait <= 1'b0;
+			iram_exc_wait <= 1'b0;
+		end
+		
+		if(iram_stall & sig_exc_occur)
+			iram_exc_wait <= 1'b1;
 	end
 end
 
-assign inst_req = ~iram_wait & f_reg_valid & ~f_is_exc & ~e_ov_exc & ~e_adel_exc & ~e_ades_exc & ~m_adel_exc & ~m_ades_exc & ~sig_exc_occur & ~sig_inter_occur;
+assign inst_req = ~iram_wait & pre_f_reg_valid & ~f_is_exc;
 
 assign iram_addr_ok = inst_req & inst_addr_ok;
-assign iram_data_ok = inst_data_ok;
+assign iram_data_ok = inst_data_ok & (~iram_exc_wait);
+assign iram_stall = (inst_req | iram_wait) & ~iram_data_ok;
 
 assign inst_wr = 1'b0;
 assign inst_size = 2'b10;
 assign inst_addr = f_pc;
 assign inst_wdata = 32'b0;
 assign f_inst = inst_rdata;
-assign iram_stall = (inst_req | iram_wait) & ~iram_data_ok;
-//fetch2decode
-
-reg_pipline_full_stage pipe_f_d(
+// fetch2decode
+reg_pipeline_full_stage pipe_f_d(
 	.clk                (clk             ),
 	.reset              (fd_reset        ),
 	.cur_stall          (fd_stall        ),
-	.goon_stall         (iram_stall      ),
 	.cur_allowin        (fd_allowin      ),
 	.reg_valid          (fd_reg_valid    ),
 	.pre_valid          (f_to_d_valid    ),
@@ -387,7 +409,7 @@ reg_pipline_full_stage pipe_f_d(
 	.pc                 (d_pc            )
 	);
 
-//decode
+// decode
 ins_decoder decode_reg(
 	.instruct      (d_inst          ), 
 	.rs            (d_rs            ), 
@@ -399,22 +421,23 @@ ins_decoder decode_reg(
 	);
 
 sig_generator generate_sig(
-	.instruct      (d_inst          ), 
-	.sig_branch    (d_sig_branch    ), 
-	.sig_regdst    (d_sig_regdst    ), 
-	.sig_alusrc    (d_sig_alusrc    ), 
-	.sig_aluop     (d_sig_aluop     ), 
-	.sig_memen     (d_sig_memen     ), 
-	.sig_memtoreg  (d_sig_memtoreg  ), 
-	.sig_regen     (d_sig_regen     ),
-	.sig_brjudge   (d_sig_brjudge   ),
-	.sig_shamt     (d_sig_shamt     ),
-	.sig_hilo_rwen (d_sig_hilo_rwen ),
-	.sig_mul_sign  (d_sig_mul_sign  ),
-	.sig_div       (d_sig_div       ),
-	.sig_exc       (d_sig_exc       ),
-	.sig_exc_cmd   (d_sig_exc_cmd   ),
-	.sig_ri_exc    (d_ri_exc        )
+	.is_valid          (fd_reg_valid    ),
+	.instruct          (d_inst          ), 
+	.out_sig_branch    (d_sig_branch    ), 
+	.out_sig_regdst    (d_sig_regdst    ), 
+	.out_sig_alusrc    (d_sig_alusrc    ), 
+	.out_sig_aluop     (d_sig_aluop     ), 
+	.out_sig_memen     (d_sig_memen     ), 
+	.out_sig_memtoreg  (d_sig_memtoreg  ), 
+	.out_sig_regen     (d_sig_regen     ),
+	.out_sig_brjudge   (d_sig_brjudge   ),
+	.out_sig_shamt     (d_sig_shamt     ),
+	.out_sig_hilo_rwen (d_sig_hilo_rwen ),
+	.out_sig_mul_sign  (d_sig_mul_sign  ),
+	.out_sig_div       (d_sig_div       ),
+	.out_sig_exc       (d_sig_exc       ),
+	.out_sig_exc_cmd   (d_sig_exc_cmd   ),
+	.out_sig_ri_exc    (d_ri_exc        )
 	);
 
 assign d_pc4 = d_pc+3'h4;
@@ -424,6 +447,7 @@ jump_16 jump16(
 	d_imm                             ,
 	d_pc4                             ,
 	d_extend                          ,
+	d_0extend                         ,
 	d_16_target	
 	);
 	
@@ -432,12 +456,6 @@ jump_26 jump26(
 	d_pc8[31:28]                      ,
 	d_26_target                       
 	);
-
-extend zero_extend(
-	(d_sig_alusrc != `ALUSRC_0EXT)    ,
-	d_imm                             ,
-	d_0extend
-);
 
 regfile regfile(
 	clk                               ,
@@ -458,8 +476,9 @@ reg_hilo reg_hilo(
 	w_wreg_data,
 	d_hi,
 	d_lo
-);	
+);
 
+// forward1__hilo__0 mux
 mux3_32 d_forward1_reg_mux(
 	d_forwardAD,
 	d_rd1,
@@ -479,13 +498,15 @@ mux6_32 d_forward1_hilo_mux(
     d_forward1_hilo	
 );
 
+assign d_reg_hilo_0 = d_sig_exc == `EXC_MTC0;
 mux2_32 d_forward1_hilo_0_mux(
-	d_sig_exc == `EXC_MTC0,
+	d_reg_hilo_0,
 	d_forward1_hilo,
 	32'b0,
 	d_branch_src1
 );
-	
+
+// forward2__0__cp0 mux
 mux3_32 d_forward2_mux(
 	d_forwardBD,
 	d_rd2,
@@ -503,13 +524,15 @@ mux2_32 d_forward2_0_mux(
 	d_forward2_0
 );
 
+assign d_reg_cp0 = d_sig_exc == `EXC_MFC0;
 mux2_32 d_forward2_0_cp0_mux(
-	d_sig_exc == `EXC_MFC0,
+	d_reg_cp0,
 	d_forward2_0,
 	d_cp0_data,
 	d_branch_src2
 );
 
+// judge branch or not
 branch_judge branch_judge(
 	d_sig_brjudge,
 	d_branch_src1,
@@ -518,12 +541,10 @@ branch_judge branch_judge(
 	);
 
 // decode2execute
-
-reg_pipline_full_stage pipe_d_e(
+reg_pipeline_full_stage pipe_d_e(
 	.clk                (clk             ),
 	.reset              (de_reset        ),
 	.cur_stall          (de_stall        ),
-	.goon_stall             (1'b0             ),
 	.cur_allowin        (de_allowin      ),
 	.reg_valid          (de_reg_valid    ),
 	.pre_valid          (d_to_e_valid    ),
@@ -582,7 +603,10 @@ reg_pipline_full_stage pipe_d_e(
 	.sig_exc            (e_sig_exc       ),
 	.sig_exc_cmd        (e_sig_exc_cmd   )
 	);
-//execute
+// execute
+assign e_alu_reg_src1 = e_rd1;
+assign e_alu_reg_src2 = e_rd2;
+
 mux3_5 regdst_mux(
 	e_sig_regdst,
 	e_rt,
@@ -590,42 +614,7 @@ mux3_5 regdst_mux(
 	`REG_RA,
 	e_regdstaddr
 	);
-
-///////////////////////e_forward_mux////////////
-`ifdef _USE_E_FORWARD
-mux3_32 e_forward1_reg_mux(
-	e_forwardAE,
-	e_rd1,
-	w_wreg_data,
-	m_alu_pc8,
-	e_forward1_reg
-);
-
-mux6_32 e_forward1_hilo_mux(
-	e_forwardAE_hilo,
-	e_forward1_reg,
-	e_forward1_reg,
-	e_forward1_reg,
-    w_muldiv_res[31: 0],
-	w_muldiv_res[63:32],
-	m_alu_pc8,
-    e_alu_reg_src1	
-);
-
-mux3_32 e_foward2_mux(
-	e_forwardBE,
-	e_rd2,
-	w_wreg_data,
-	m_alu_pc8,
-	e_alu_reg_src2
-	);	
-`else
-assign e_alu_reg_src1 = e_rd1;
-assign e_alu_reg_src2 = e_rd2;
-`endif
-
-/////////////////////////////////////////////////	
-
+	
 mux2_32 alusrc1_mux(
 	e_sig_shamt,
 	e_alu_reg_src1,
@@ -669,14 +658,13 @@ alu alu(
 	e_alu_res
 	);
 	
-//execute2memory
-assign em_stall = 1'b0;
+// execute2memory
+assign em_stall = dram_stall;
 
-reg_pipline_full_stage pipe_e_m(
+reg_pipeline_full_stage pipe_e_m(
 	.clk                    (clk              ),
 	.reset                  (em_reset         ),
 	.cur_stall              (em_stall         ),
-	.goon_stall             (1'b0             ),
 	.cur_allowin            (em_allowin       ),
 	.reg_valid              (em_reg_valid     ),
 	.pre_valid              (e_to_m_valid     ),
@@ -736,7 +724,6 @@ wire        joint_stall;
 
 memory_in_mux_axi m_memin_mux(
 	.sig_memen            (m_sig_memen),
-	.reg_valid            (em_reg_valid),
 	.data_in              (m_mem_data),
 	.addr_in              (m_alu_res),
 	
@@ -751,13 +738,11 @@ memory_in_mux_axi m_memin_mux(
 	.en                   (m_wmem_en)
 );
 
-
 always @(posedge clk) begin
 	if(reset) begin
 		dram_wait <= 1'b0;
 		joint_cmd_reg <= 2'd0;
 	end
-	
 	else begin
 		if((m_sig_memen == `MEMEN_JOIN_L || m_sig_memen == `MEMEN_JOIN_R) && m_size2 != 2'b10 && joint_cmd_reg == 2'd0)
 			joint_cmd_reg = 2'd2;
@@ -810,14 +795,12 @@ mux2_64 muldiv_res_mux(
 	m_muldiv_res
 	);
 
-//memory2writeback
-assign mw_stall = dram_stall;
-
-reg_pipline_full_stage pipe_m_w(
+// memory2writeback
+assign mw_stall = 1'b0;
+reg_pipeline_full_stage pipe_m_w(
 	.clk                (clk             ),
 	.reset              (mw_reset        ),
 	.cur_stall          (mw_stall        ),
-	.goon_stall         (dram_stall      ),
 	.cur_allowin        (mw_allowin      ),
 	.reg_valid          (mw_reg_valid    ),
 	.pre_valid          (m_to_w_valid    ),
@@ -854,8 +837,8 @@ reg_pipline_full_stage pipe_m_w(
 	.sig_exc            (w_sig_exc       )
 	);
 
-//writeback
-assign w_wreg_en = w_sig_regen & mw_reg_valid & (~sig_exc_occur) & (~dram_stall);
+// writeback
+assign w_wreg_en = w_sig_regen & (~sig_exc_occur);
 memory_out_mux memory_out_mux(
 	w_sig_memtoreg,
 	w_alu_res,
@@ -872,7 +855,7 @@ mux2_32 reg_w_pc8_mux(
 	w_wreg_data
 );
 
-//hazard
+// hazard
 hazard hazard(
 	d_rs              , 
 	d_rt              ,
@@ -899,8 +882,6 @@ hazard hazard(
 	
 	d_forwardAD       ,
 	d_forwardBD       ,
-	e_forwardAE       ,
-	e_forwardBE       ,
 	hazard_stall      
 );
 
@@ -922,163 +903,152 @@ mul_div_hazard mul_div_hazard(
 	w_sig_hilo_rwen[1:0] ,
 	
 	d_forwardAD_hilo  ,
-	e_forwardAE_hilo  ,
 	
 	hazard_div_stall  ,
 	hazard_div_relation_stall
 );
 
-assign fd_stall = hazard_stall | hazard_div_relation_stall | iram_stall;
+assign fd_stall = hazard_stall | hazard_div_relation_stall | (iram_stall & ~sig_inter_occur);
 assign de_stall = hazard_div_stall;
 
-// exception and interrupt
+//////////////////////////////// exception and interrupt module ///////////////////////////////////
 // f stage
+assign f_adel_exc = f_pc[1:0] != 2'b00;
+assign f_is_exc = f_adel_exc;
 assign f_excCode = f_adel_exc ? `ExcCode_AdEL :
 								`ExcCode_RESERVE ;
-assign f_adel_exc = f_reg_valid && f_pc[1:0] != 2'b00;
-assign f_is_exc = f_adel_exc;
 assign f_is_in_ds = d_sig_branch != `BRANCH_PC4;
 assign f_is_eret = 1'b0;
 // fd stage
 CP0_reg_pipeline fd_cp0(
 	.clk                (clk             ),
 	.reset              (fd_reset        ),
-	.cur_stall       	(fd_stall        ),
+	.cur_stall          (fd_stall        ),
 	.pre_valid          (f_to_d_valid    ),
 	.post_allowin       (de_allowin      ),
-
+	.reg_valid          (fd_reg_valid    ),
+	
 	.cur_pc             (f_pc            ),
 	.cur_badvaddr       (f_pc            ),
 	.cur_excCode        (f_excCode       ),
 	.cur_is_exc         (f_is_exc        ),
 	.cur_is_in_ds       (f_is_in_ds      ),
-    .cur_is_eret        (f_is_eret       ),
-
-    .pre_pc             (                    ),
+	.cur_is_eret        (f_is_eret       ),
+	
+	.pre_pc             (                    ),
 	.pre_badvaddr       (                    ),
-    .pre_excCode        (`ExcCode_RESERVE    ),
-    .pre_is_exc         (1'b0                ),
-    .pre_is_in_ds       (1'b0                ),
-    .pre_is_eret        (1'b0                ),
-   
-    .pc                 (fd_pc           ),
+	.pre_excCode        (`ExcCode_RESERVE    ),
+	.pre_is_exc         (1'b0                ),
+	.pre_is_in_ds       (1'b0                ),
+	.pre_is_eret        (1'b0                ),
+	
+	.pc                 (fd_pc           ),
 	.badvaddr           (fd_badvaddr     ),
-    .excCode            (fd_excCode      ),
+	.excCode            (fd_excCode      ),
 	.is_exc             (fd_is_exc       ),
 	.is_in_ds           (fd_is_in_ds     ),
 	.is_eret            (fd_is_eret      ),
-
-	.exc_occur          (sig_exc_occur   ),
-	.cp0_Status         (cp0_Status      ),
-	.cp0_EPC            (cp0_EPC         ),
+	
 	.en_disable         (fd_en_disable   )
 );
 // d stage
-assign d_excCode = d_sig_exc == `EXC_SYS ? `ExcCode_Sys :
-				   d_sig_exc == `EXC_BRK ? `ExcCode_Bp  :
-				   d_ri_exc              ? `ExcCode_RI  :
-									   `ExcCode_RESERVE ;
-assign d_is_exc = fd_reg_valid && (d_sig_exc == `EXC_SYS || d_sig_exc == `EXC_BRK || d_sig_exc == `EXC_ERET || d_ri_exc);
-assign d_is_in_ds = e_sig_branch != `BRANCH_PC4;
-assign d_is_eret = fd_reg_valid && d_sig_exc == `EXC_ERET;
+assign d_sys_exc = d_sig_exc == `EXC_SYS;
+assign d_brk_exc = d_sig_exc == `EXC_BRK;
+assign d_eret_exc = d_sig_exc == `EXC_ERET;
+
+assign d_is_exc = d_sys_exc || d_brk_exc || d_eret_exc || d_ri_exc;
+assign d_excCode = d_sys_exc ? `ExcCode_Sys :
+				   d_brk_exc ? `ExcCode_Bp  :
+				   d_ri_exc  ? `ExcCode_RI  :
+						   `ExcCode_RESERVE ;
+
+assign d_is_in_ds = e_sig_branch != `BRANCH_PC4 | d_is_in_ds_reg;
+assign d_is_eret = d_eret_exc;
 // de stage
 CP0_reg_pipeline de_cp0(
 	.clk                (clk             ),
 	.reset              (de_reset        ),
-	.cur_stall       	(de_stall        ),
+	.cur_stall          (de_stall        ),
 	.pre_valid          (d_to_e_valid    ),
 	.post_allowin       (em_allowin      ),
-
+	.reg_valid          (de_reg_valid    ),
+	
 	.cur_pc             (d_pc            ),
 	.cur_badvaddr       (                ),
 	.cur_excCode        (d_excCode       ),
 	.cur_is_exc         (d_is_exc        ),
 	.cur_is_in_ds       (d_is_in_ds      ),
-    .cur_is_eret        (d_is_eret       ),
-
-    .pre_pc             (fd_pc           ),
-	.pre_badvaddr       (fd_badvaddr     ),
-    .pre_excCode        (fd_excCode      ),
-    .pre_is_exc         (fd_is_exc       ),
-    .pre_is_in_ds       (fd_is_in_ds     ),
-    .pre_is_eret        (fd_is_eret      ),
+	.cur_is_eret        (d_is_eret       ),
 	
-    .pc                 (de_pc           ),
+	.pre_pc             (fd_pc           ),
+	.pre_badvaddr       (fd_badvaddr     ),
+	.pre_excCode        (fd_excCode      ),
+	.pre_is_exc         (fd_is_exc       ),
+	.pre_is_in_ds       (fd_is_in_ds     ),
+	.pre_is_eret        (fd_is_eret      ),
+	
+	.pc                 (de_pc           ),
 	.badvaddr           (de_badvaddr     ),
-    .excCode            (de_excCode      ),
+	.excCode            (de_excCode      ),
 	.is_exc             (de_is_exc       ),
 	.is_in_ds           (de_is_in_ds     ),
 	.is_eret            (de_is_eret      ),
 	
-	.exc_occur          (sig_exc_occur   ),
-	.cp0_Status         (cp0_Status      ),
-	.cp0_EPC            (cp0_EPC         ),
 	.en_disable         (de_en_disable   )
 );
 // e stage
+assign e_ov_exc = (e_sig_exc_cmd[0] || e_sig_exc_cmd[1] ) && e_alu_src1[31] == e_alu_src2[31] && e_alu_res[31] != e_alu_src1[31] ||
+				  e_sig_exc_cmd[2] && e_alu_src1[31] != e_alu_src2[31] && e_alu_res[31] == e_alu_src2[31];
 assign e_excCode = e_ov_exc ? `ExcCode_Ov :
 						 `ExcCode_RESERVE ;
-assign e_ov_exc = ((e_sig_exc_cmd[0] || e_sig_exc_cmd[1] ) && e_alu_src1[31] == e_alu_src2[31] && e_alu_res[31] != e_alu_src1[31] ||
-				  e_sig_exc_cmd[2] && e_alu_src1[31] != e_alu_src2[31] && e_alu_res[31] == e_alu_src2[31] )&&
-				  de_reg_valid;
-assign e_adel_exc = ((e_sig_exc_cmd[3] && e_alu_res[1:0] != 2'b00) || 
-					((e_sig_exc_cmd[4] || e_sig_exc_cmd[5]) && e_alu_res[0] != 1'b0))
-					&& de_reg_valid; 
-assign e_ades_exc = ((e_sig_exc_cmd[6] && e_alu_res[1:0] != 2'b00) ||
-					(e_sig_exc_cmd[7] && e_alu_res[0] != 1'b0))
-					&& de_reg_valid;
-
 assign e_is_exc = e_ov_exc;
-assign e_is_in_ds = m_sig_branch != `BRANCH_PC4;
+assign e_is_in_ds = m_sig_branch != `BRANCH_PC4 | e_is_in_ds_reg;
 assign e_is_eret = 1'b0;
 // em stage
 CP0_reg_pipeline em_cp0(
 	.clk                (clk             ),
 	.reset              (em_reset        ),
-	.cur_stall       	(em_stall        ),
+	.cur_stall          (em_stall        ),
 	.pre_valid          (e_to_m_valid    ),
 	.post_allowin       (mw_allowin      ),
-
+	.reg_valid          (em_reg_valid    ),
+	
 	.cur_pc             (e_pc            ),
 	.cur_badvaddr       (e_alu_res       ),
 	.cur_excCode        (e_excCode       ),
 	.cur_is_exc         (e_is_exc        ),
 	.cur_is_in_ds       (e_is_in_ds      ),
-    .cur_is_eret        (e_is_eret       ),
-
-    .pre_pc             (de_pc           ),
+	.cur_is_eret        (e_is_eret       ),
+	
+	.pre_pc             (de_pc           ),
 	.pre_badvaddr       (de_badvaddr     ),
-    .pre_excCode        (de_excCode      ),
-    .pre_is_exc         (de_is_exc       ),
-    .pre_is_in_ds       (de_is_in_ds     ),
-    .pre_is_eret        (de_is_eret      ),
-   
-    .pc                 (em_pc           ),
+	.pre_excCode        (de_excCode      ),
+	.pre_is_exc         (de_is_exc       ),
+	.pre_is_in_ds       (de_is_in_ds     ),
+	.pre_is_eret        (de_is_eret      ),
+	
+	.pc                 (em_pc           ),
 	.badvaddr           (em_badvaddr     ),
-    .excCode            (em_excCode      ),
+	.excCode            (em_excCode      ),
 	.is_exc             (em_is_exc       ),
 	.is_in_ds           (em_is_in_ds     ),
 	.is_eret            (em_is_eret      ),
 	
-	.exc_occur          (sig_exc_occur   ),
-	.cp0_Status         (cp0_Status      ),
-	.cp0_EPC            (cp0_EPC         ),
 	.en_disable         (em_en_disable   )
 );
 // m stage
-assign m_excCode = m_adel_exc ? `ExcCode_AdEL :
-				   m_ades_exc ? `ExcCode_AdES :
-				             `ExcCode_RESERVE ;
-assign m_is_exc = m_adel_exc | m_ades_exc;
-
 assign m_adel_exc = ((m_sig_exc_cmd[3] && m_alu_res[1:0] != 2'b00) || 
 					((m_sig_exc_cmd[4] || m_sig_exc_cmd[5]) && m_alu_res[0] != 1'b0)) &&
 					em_reg_valid; 
 assign m_ades_exc = ((m_sig_exc_cmd[6] && m_alu_res[1:0] != 2'b00) ||
 					(m_sig_exc_cmd[7] && m_alu_res[0] != 1'b0)) &&
 					em_reg_valid;
+assign m_excCode = m_adel_exc ? `ExcCode_AdEL :
+				   m_ades_exc ? `ExcCode_AdES :
+				             `ExcCode_RESERVE ;
+assign m_is_exc = m_adel_exc | m_ades_exc;
+assign m_is_in_ds = w_sig_branch != `BRANCH_PC4 | m_is_in_ds_reg;
 assign m_is_eret = 1'b0;
-assign m_is_in_ds = w_sig_branch != `BRANCH_PC4;
 // mw stage
 CP0_reg_pipeline mw_cp0(
 	.clk                (clk             ),
@@ -1086,44 +1056,40 @@ CP0_reg_pipeline mw_cp0(
 	.cur_stall       	(mw_stall        ),
 	.pre_valid          (m_to_w_valid    ),
 	.post_allowin       (1'b1            ),
-
+	.reg_valid          (mw_reg_valid    ),
+	
 	.cur_pc             (m_pc            ),
 	.cur_badvaddr       (m_alu_res       ),
 	.cur_excCode        (m_excCode       ),
 	.cur_is_exc         (m_is_exc        ),
 	.cur_is_in_ds       (m_is_in_ds      ),
-    .cur_is_eret        (m_is_eret       ),
-
-    .pre_pc             (em_pc           ),
+	.cur_is_eret        (m_is_eret       ),
+	
+	.pre_pc             (em_pc           ),
 	.pre_badvaddr       (em_badvaddr     ),
-    .pre_excCode        (em_excCode      ),
-    .pre_is_exc         (em_is_exc       ),
-    .pre_is_in_ds       (em_is_in_ds     ),
-    .pre_is_eret        (em_is_eret      ),
-   
-    .pc                 (mw_pc           ),
+	.pre_excCode        (em_excCode      ),
+	.pre_is_exc         (em_is_exc       ),
+	.pre_is_in_ds       (em_is_in_ds     ),
+	.pre_is_eret        (em_is_eret      ),
+	
+	.pc                 (mw_pc           ),
 	.badvaddr           (mw_badvaddr     ),
-    .excCode            (mw_excCode      ),
+	.excCode            (mw_excCode      ),
 	.is_exc             (mw_is_exc       ),
 	.is_in_ds           (mw_is_in_ds     ),
 	.is_eret            (mw_is_eret      ),
 	
-	.exc_occur          (sig_exc_occur   ),
-	.cp0_Status         (cp0_Status      ),
-	.cp0_EPC            (cp0_EPC         ),
 	.en_disable         (mw_en_disable   )
 );
 // w stage
-assign w_is_exc = 1'b0;
 assign cp0_wen = w_sig_exc == `EXC_MTC0;
 CP0 CP0(
 	.clk                (clk                        ),
 	.reset              (mw_reset                   ),
 	.reg_valid          (mw_reg_valid               ),
-	.iram_stall         (iram_stall                 ),
-
-	.cur_pc             (w_pc                       ),
-	.m_is_in_ds         (m_is_in_ds                 ),
+	
+	.cur_pc             (f_pc                       ),
+	.cur_is_in_ds       (f_is_in_ds                 ),
 	
 	.pre_pc             (mw_pc                      ),
 	.pre_badvaddr       (mw_badvaddr                ),
@@ -1131,16 +1097,11 @@ CP0 CP0(
 	.pre_is_exc         (mw_is_exc                  ),
 	.pre_is_in_ds       (mw_is_in_ds                ),
 	.pre_is_eret        (mw_is_eret                 ),
-
+	
 	.pc                 (exc_pc                     ),
 	.exc_occur          (sig_exc_occur              ),
 	.inter_occur        (sig_inter_occur            ),
-	.inter___           (sig_inter___               ),
-
-	.Status             (cp0_Status                ),
-	.Cause              (cp0_Cause                 ),
-	.EPC                (cp0_EPC                   ),
-
+	
 	.wen                (cp0_wen                    ),
 	.waddr              (w_wreg_addr                ),
 	.wdata              (w_wreg_data                ),
@@ -1149,17 +1110,17 @@ CP0 CP0(
 );
 
 mux2_32 branch_exc_pc_mux(
-	sig_exc_occur | sig_inter_occur,
-	f_branch_pc,
+	sig_exc_occur,
+	pre_f_branch_pc,
 	exc_pc,
-	f_next_pc
+	pre_f_pc
 );
 
-assign  f_reset   = reset | de_en_disable | em_en_disable | mw_en_disable;
-assign fd_reset   = reset | de_en_disable | em_en_disable | mw_en_disable;
+assign to_f_reset = reset | de_en_disable | em_en_disable | mw_en_disable ;
+assign fd_reset   = reset | de_en_disable | em_en_disable | mw_en_disable | sig_inter_occur ;
 assign de_reset   = reset | em_en_disable | mw_en_disable;
-assign em_reset   = reset | mw_en_disable;
-assign mw_reset   = reset;
+assign em_reset   = reset | mw_en_disable ;
+assign mw_reset   = reset ;
 
 //reset
 always @(posedge clk) reset <= ~resetn;

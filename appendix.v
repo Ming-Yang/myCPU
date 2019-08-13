@@ -109,6 +109,7 @@ module jump_16(
 	input  [15:0] imm,
 	input  [31:0] pc4,
 	output [31:0] extend_res,
+	output [31:0] zextend_res,
 	output [31:0] target
 	);
 wire [31:0] extended;
@@ -118,7 +119,14 @@ extend sign_extend(
 	`EXTEND_SIGNED,
 	imm,
 	extended
+	);
+	
+extend z_sign_extend(
+	~`EXTEND_SIGNED,
+	imm,
+	zextend_res
 	);	
+
 left_shifter2 shifter(
 	extended,
 	branch
@@ -232,60 +240,8 @@ assign to_reg_data = sig_memtoreg == `REG_FROM_ALU                     ? alu_res
 
 endmodule
 
-module memory_in_mux(
-	input  [ 3:0] sig_memen,
-	input         reg_valid,
-	input  [31:0] data_in,
-	input  [31:0] alu_res,
-	output [ 3:0] en,
-	output [31:0] data_out,
-	output [31:0] addr
-);
-wire [ 3:0] mem_wen;
-wire [31:0] l_data;
-wire [31:0] r_data;
-wire [31:0] move_data;
-wire [ 1:0] low_addr;
-
-assign low_addr = alu_res[1:0];
-assign mem_wen = sig_memen == `MEMEN_EN                        ? sig_memen : 
-				 sig_memen == `MEMEN_JOIN_L && low_addr == 2'b00 ? 4'b0001 :
-                 sig_memen == `MEMEN_JOIN_L && low_addr == 2'b01 ? 4'b0011 :
-                 sig_memen == `MEMEN_JOIN_L && low_addr == 2'b10 ? 4'b0111 :
-                 sig_memen == `MEMEN_JOIN_L && low_addr == 2'b11 ? 4'b1111 :
-				 
-				 sig_memen == `MEMEN_JOIN_R && low_addr == 2'b00 ? 4'b1111 :
-                 sig_memen == `MEMEN_JOIN_R && low_addr == 2'b01 ? 4'b1110 :
-                 sig_memen == `MEMEN_JOIN_R && low_addr == 2'b10 ? 4'b1100 :
-                 sig_memen == `MEMEN_JOIN_R && low_addr == 2'b11 ? 4'b1000 :
-
-				 sig_memen == `MEMEN_BYTE && low_addr == 2'b00 ? 4'b0001 :
-				 sig_memen == `MEMEN_BYTE && low_addr == 2'b01 ? 4'b0010 :
-				 sig_memen == `MEMEN_BYTE && low_addr == 2'b10 ? 4'b0100 :
-				 sig_memen == `MEMEN_BYTE && low_addr == 2'b11 ? 4'b1000 :
-				 
-				 sig_memen == `MEMEN_HALF && low_addr == 2'b00 ? 4'b0011 :
-				 sig_memen == `MEMEN_HALF && low_addr == 2'b10 ? 4'b1100 :
-				                                                 4'b0000 ;
-
-assign l_data = data_in >> {3'd3-low_addr, 3'b0};
-assign r_data = data_in << {low_addr, 3'b0};
-assign move_data = data_in << {low_addr, 3'b0};
-
-assign data_out = sig_memen == `MEMEN_JOIN_L ? l_data :
-                  sig_memen == `MEMEN_JOIN_R ? r_data :
-			      (sig_memen == `MEMEN_BYTE || sig_memen == `MEMEN_HALF) ? move_data :
-			                                                                 data_in ;
-
-assign addr = alu_res ;
-assign en = mem_wen & {4{reg_valid}};
-
-endmodule
-
-
 module memory_in_mux_axi(
 	input  [ 3:0] sig_memen,
-	input         reg_valid,
 	input  [31:0] data_in,
 	input  [31:0] addr_in,
 	
