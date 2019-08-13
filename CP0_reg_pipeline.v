@@ -61,28 +61,26 @@ CP0_priority_checker CP0_priority_checker(
 	);
 
 always @(posedge clk) begin
-	if(pre_valid && cur_allowin) begin
-		if(cur_is_exc) begin
-			if(cur_is_in_ds)
-				reg_pc <= cur_pc - 3'h4;
-			else
-				reg_pc <= cur_pc;
+	if(cur_is_exc) begin
+		if(cur_is_in_ds)
+			reg_pc <= cur_pc - 3'h4;
+		else
+			reg_pc <= cur_pc;
 
-			reg_badvaddr <= cur_badvaddr;
-			reg_excCode  <= cur_excCode;
-			reg_is_exc   <= cur_is_exc;
-			reg_is_in_ds <= cur_is_in_ds;
-			reg_is_eret  <= cur_is_eret;
-		end
-		else begin
-			reg_pc          <=      pre_pc        ;
-			reg_badvaddr    <=      pre_badvaddr  ;
-			reg_excCode     <=      pre_excCode   ;
-			reg_is_exc      <=      pre_is_exc    ;
-			reg_is_in_ds    <=      pre_is_in_ds  ;
-			reg_is_eret     <=      pre_is_eret   ;
-		end	
+		reg_badvaddr <= cur_badvaddr;
+		reg_excCode  <= cur_excCode;
+		reg_is_exc   <= cur_is_exc;
+		reg_is_in_ds <= cur_is_in_ds;
+		reg_is_eret  <= cur_is_eret;
 	end
+	else if(pre_valid && cur_allowin) begin
+		reg_pc          <=      pre_pc        ;
+		reg_badvaddr    <=      pre_badvaddr  ;
+		reg_excCode     <=      pre_excCode   ;
+		reg_is_exc      <=      pre_is_exc    ;
+		reg_is_in_ds    <=      pre_is_in_ds  ;
+		reg_is_eret     <=      pre_is_eret   ;
+	end	
 end
 
 assign en_disable   =  cur_allowin && pre_valid && (cur_is_exc || pre_is_exc);

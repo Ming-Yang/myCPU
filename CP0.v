@@ -49,7 +49,7 @@ always @(posedge clk) begin
 	end
 	else begin
 		counter <= ~counter;
-		if(counter == 1'b1)
+		if(counter == 1'b1 && !(wen && waddr == `Register_Count))
 			rf[`Register_Count] <= rf[`Register_Count] + 1'b1;	
 		if(rf[`Register_Compare] == rf[`Register_Count]) begin
 			rf[`Register_Cause][`Register_Cause_IP0+3'd7] <= 1'b1;
@@ -83,7 +83,7 @@ always @(posedge clk) begin
 	end
 end
 
-assign inter_occur = ~in_exc && reg_valid && 
+assign inter_occur = ~in_exc && 
 				     rf[`Register_Status][`Register_Status_IE] == 1'b1 &&
 				     (rf[`Register_Cause][`Register_Cause_IP] & rf[`Register_Status][`Register_Status_IM]);
 assign pre_exc_occur = reg_valid && pre_is_exc &&

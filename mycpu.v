@@ -98,7 +98,6 @@ wire [31:0] d_lo             ;
 wire        d_reg_hilo_0     ;
 wire        d_compare_0      ;
 wire        d_reg_cp0        ;
-wire        d_branch_judge   ;
 wire [31:0] d_cp0_data       ;
 
 wire [ 1:0] d_sig_branch     ;
@@ -282,7 +281,7 @@ wire        sig_inter_occur  ;
 wire        cp0_wen          ;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-//fetch
+// fetch
 assign f_sig_branch = d_sig_branch ;
 assign f_isbranch = d_isbranch;
 
@@ -757,7 +756,7 @@ hazard hazard(
 
 mul_div_hazard mul_div_hazard(
 	clk               ,
-	reset             ,
+	de_reset          ,
 	
 	e_sig_div         ,
 	e_div_complete    ,
@@ -778,7 +777,7 @@ mul_div_hazard mul_div_hazard(
 	hazard_div_relation_stall
 );
 
-assign fd_stall = hazard_stall || hazard_div_relation_stall;
+assign fd_stall = hazard_stall | hazard_div_relation_stall;
 assign de_stall = hazard_div_stall;
 
 
@@ -794,35 +793,34 @@ assign f_is_eret = 1'b0;
 CP0_reg_pipeline fd_cp0(
 	.clk                (clk             ),
 	.reset              (fd_reset        ),
-	.cur_stall       	(fd_stall        ),
+	.cur_stall          (fd_stall        ),
 	.pre_valid          (f_to_d_valid    ),
 	.post_allowin       (de_allowin      ),
 	.reg_valid          (fd_reg_valid    ),
-
+	
 	.cur_pc             (f_pc            ),
 	.cur_badvaddr       (f_pc            ),
 	.cur_excCode        (f_excCode       ),
 	.cur_is_exc         (f_is_exc        ),
 	.cur_is_in_ds       (f_is_in_ds      ),
-    .cur_is_eret        (f_is_eret       ),
-
-    .pre_pc             (                    ),
+	.cur_is_eret        (f_is_eret       ),
+	
+	.pre_pc             (                    ),
 	.pre_badvaddr       (                    ),
-    .pre_excCode        (`ExcCode_RESERVE    ),
-    .pre_is_exc         (1'b0                ),
-    .pre_is_in_ds       (1'b0                ),
-    .pre_is_eret        (1'b0                ),
-   
-    .pc                 (fd_pc           ),
+	.pre_excCode        (`ExcCode_RESERVE    ),
+	.pre_is_exc         (1'b0                ),
+	.pre_is_in_ds       (1'b0                ),
+	.pre_is_eret        (1'b0                ),
+	
+	.pc                 (fd_pc           ),
 	.badvaddr           (fd_badvaddr     ),
-    .excCode            (fd_excCode      ),
+	.excCode            (fd_excCode      ),
 	.is_exc             (fd_is_exc       ),
 	.is_in_ds           (fd_is_in_ds     ),
 	.is_eret            (fd_is_eret      ),
-
+	
 	.en_disable         (fd_en_disable   )
 );
-
 // d stage
 assign d_sys_exc = d_sig_exc == `EXC_SYS;
 assign d_brk_exc = d_sig_exc == `EXC_BRK;
@@ -840,28 +838,28 @@ assign d_is_eret = d_eret_exc;
 CP0_reg_pipeline de_cp0(
 	.clk                (clk             ),
 	.reset              (de_reset        ),
-	.cur_stall       	(de_stall        ),
+	.cur_stall          (de_stall        ),
 	.pre_valid          (d_to_e_valid    ),
 	.post_allowin       (em_allowin      ),
 	.reg_valid          (de_reg_valid    ),
-
+	
 	.cur_pc             (d_pc            ),
 	.cur_badvaddr       (                ),
 	.cur_excCode        (d_excCode       ),
 	.cur_is_exc         (d_is_exc        ),
 	.cur_is_in_ds       (d_is_in_ds      ),
-    .cur_is_eret        (d_is_eret       ),
-
-    .pre_pc             (fd_pc           ),
-	.pre_badvaddr       (fd_badvaddr     ),
-    .pre_excCode        (fd_excCode      ),
-    .pre_is_exc         (fd_is_exc       ),
-    .pre_is_in_ds       (fd_is_in_ds     ),
-    .pre_is_eret        (fd_is_eret      ),
+	.cur_is_eret        (d_is_eret       ),
 	
-    .pc                 (de_pc           ),
+	.pre_pc             (fd_pc           ),
+	.pre_badvaddr       (fd_badvaddr     ),
+	.pre_excCode        (fd_excCode      ),
+	.pre_is_exc         (fd_is_exc       ),
+	.pre_is_in_ds       (fd_is_in_ds     ),
+	.pre_is_eret        (fd_is_eret      ),
+	
+	.pc                 (de_pc           ),
 	.badvaddr           (de_badvaddr     ),
-    .excCode            (de_excCode      ),
+	.excCode            (de_excCode      ),
 	.is_exc             (de_is_exc       ),
 	.is_in_ds           (de_is_in_ds     ),
 	.is_eret            (de_is_eret      ),
@@ -886,28 +884,28 @@ assign e_is_eret = 1'b0;
 CP0_reg_pipeline em_cp0(
 	.clk                (clk             ),
 	.reset              (em_reset        ),
-	.cur_stall       	(em_stall        ),
+	.cur_stall          (em_stall        ),
 	.pre_valid          (e_to_m_valid    ),
 	.post_allowin       (mw_allowin      ),
 	.reg_valid          (em_reg_valid    ),
-
+	
 	.cur_pc             (e_pc            ),
 	.cur_badvaddr       (e_alu_res       ),
 	.cur_excCode        (e_excCode       ),
 	.cur_is_exc         (e_is_exc        ),
 	.cur_is_in_ds       (e_is_in_ds      ),
-    .cur_is_eret        (e_is_eret       ),
-
-    .pre_pc             (de_pc           ),
+	.cur_is_eret        (e_is_eret       ),
+	
+	.pre_pc             (de_pc           ),
 	.pre_badvaddr       (de_badvaddr     ),
-    .pre_excCode        (de_excCode      ),
-    .pre_is_exc         (de_is_exc       ),
-    .pre_is_in_ds       (de_is_in_ds     ),
-    .pre_is_eret        (de_is_eret      ),
-   
-    .pc                 (em_pc           ),
+	.pre_excCode        (de_excCode      ),
+	.pre_is_exc         (de_is_exc       ),
+	.pre_is_in_ds       (de_is_in_ds     ),
+	.pre_is_eret        (de_is_eret      ),
+	
+	.pc                 (em_pc           ),
 	.badvaddr           (em_badvaddr     ),
-    .excCode            (em_excCode      ),
+	.excCode            (em_excCode      ),
 	.is_exc             (em_is_exc       ),
 	.is_in_ds           (em_is_in_ds     ),
 	.is_eret            (em_is_eret      ),
@@ -915,9 +913,10 @@ CP0_reg_pipeline em_cp0(
 	.en_disable         (em_en_disable   )
 );
 // m stage
+assign m_is_exc = 1'b0;								   
 assign m_excCode = `ExcCode_RESERVE ;
-assign m_is_exc = 1'b0;
 assign m_is_in_ds = w_sig_branch != `BRANCH_PC4;
+assign m_is_eret = 1'b0;
 // mw stage
 CP0_reg_pipeline mw_cp0(
 	.clk                (clk             ),
@@ -926,24 +925,24 @@ CP0_reg_pipeline mw_cp0(
 	.pre_valid          (m_to_w_valid    ),
 	.post_allowin       (1'b1            ),
 	.reg_valid          (mw_reg_valid    ),
-
+	
 	.cur_pc             (m_pc            ),
 	.cur_badvaddr       (                ),
 	.cur_excCode        (m_excCode       ),
 	.cur_is_exc         (m_is_exc        ),
 	.cur_is_in_ds       (m_is_in_ds      ),
-    .cur_is_eret        (m_is_eret       ),
-
-    .pre_pc             (em_pc           ),
+	.cur_is_eret        (m_is_eret       ),
+	
+	.pre_pc             (em_pc           ),
 	.pre_badvaddr       (em_badvaddr     ),
-    .pre_excCode        (em_excCode      ),
-    .pre_is_exc         (em_is_exc       ),
-    .pre_is_in_ds       (em_is_in_ds     ),
-    .pre_is_eret        (em_is_eret      ),
-   
-    .pc                 (mw_pc           ),
+	.pre_excCode        (em_excCode      ),
+	.pre_is_exc         (em_is_exc       ),
+	.pre_is_in_ds       (em_is_in_ds     ),
+	.pre_is_eret        (em_is_eret      ),
+	
+	.pc                 (mw_pc           ),
 	.badvaddr           (mw_badvaddr     ),
-    .excCode            (mw_excCode      ),
+	.excCode            (mw_excCode      ),
 	.is_exc             (mw_is_exc       ),
 	.is_in_ds           (mw_is_in_ds     ),
 	.is_eret            (mw_is_eret      ),
@@ -951,13 +950,12 @@ CP0_reg_pipeline mw_cp0(
 	.en_disable         (mw_en_disable   )
 );
 // w stage
-assign w_is_exc = 1'b0;
 assign cp0_wen = w_sig_exc == `EXC_MTC0;
 CP0 CP0(
 	.clk                (clk                        ),
 	.reset              (mw_reset                   ),
 	.reg_valid          (mw_reg_valid               ),
-
+	
 	.cur_pc             (f_pc                       ),
 	.cur_is_in_ds       (f_is_in_ds                 ),
 	
@@ -967,11 +965,11 @@ CP0 CP0(
 	.pre_is_exc         (mw_is_exc                  ),
 	.pre_is_in_ds       (mw_is_in_ds                ),
 	.pre_is_eret        (mw_is_eret                 ),
-
+	
 	.pc                 (exc_pc                     ),
 	.exc_occur          (sig_exc_occur              ),
 	.inter_occur        (sig_inter_occur            ),
-
+	
 	.wen                (cp0_wen                    ),
 	.waddr              (w_wreg_addr                ),
 	.wdata              (w_wreg_data                ),

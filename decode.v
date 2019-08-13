@@ -239,8 +239,6 @@ assign sig_exc_cmd[7] = inst_sh;
 assign sig_ri_exc = ~ ( inst_lui || inst_addu || inst_addiu || inst_subu || inst_slt || inst_sltu || inst_and || inst_or || inst_xor || inst_nor || inst_sll || inst_srl || inst_sra || inst_lw || inst_sw || inst_beq || inst_bne || inst_jal || inst_jr || inst_add || inst_addi || inst_sub || inst_slti || inst_sltiu || inst_andi || inst_ori || inst_xori || inst_sllv || inst_srav || inst_srlv || inst_div || inst_divu || inst_mult || inst_multu || inst_mfhi || inst_mflo || inst_mthi || inst_mtlo || inst_j || inst_bgez || inst_bgtz || inst_blez || inst_bltz || inst_bltzal || inst_bgezal || inst_jalr || inst_lb || inst_lbu || inst_lh || inst_lhu || inst_lwl || inst_lwr || inst_sb || inst_sh || inst_swl || inst_swr || inst_eret || inst_mfc0 || inst_mtc0 || inst_syscall || inst_break );
 
 
-
-
 assign out_sig_branch    = {2{is_valid}} & sig_branch      ;
 assign out_sig_regdst    = {2{is_valid}} & sig_regdst      ;
 assign out_sig_alusrc    = {2{is_valid}} & sig_alusrc      ;
