@@ -1,7 +1,15 @@
-This is a toy MIPS CPU
+# This is a toy MIPS CPU
 
 5-stage pipeline with full forwarding
 support 56 instructions
 wallace+booth multiplier and iterative divider
 
 based on Computer Architecture Seminer from University of Chinese Academy of Science 
+
+---
+to use axi:
+add following codes in *.xdc
+```
+set_property SEVERITY {Warning} [get_drc_checks LUTLP-1]
+set_property SEVERITY {Warning} [get_drc_checks NSTD-1]
+```
